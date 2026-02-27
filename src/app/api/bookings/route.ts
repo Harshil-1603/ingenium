@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    let bookingStatus: "PENDING" | "WAITLISTED" = resource.requiresApproval ? "PENDING" : "PENDING";
+    let bookingStatus: "PENDING" | "APPROVED" | "WAITLISTED" = resource.requiresApproval ? "PENDING" : "APPROVED";
     let waitlistEntry = null;
 
     if (conflicting) {
@@ -197,9 +197,11 @@ export async function POST(request: NextRequest) {
     await createNotification({
       userId: user.id,
       type: action,
-      title: bookingStatus === "WAITLISTED" ? "Added to Waitlist" : "Booking Submitted",
+      title: bookingStatus === "WAITLISTED" ? "Added to Waitlist" : bookingStatus === "APPROVED" ? "Booking Confirmed" : "Booking Submitted",
       message: bookingStatus === "WAITLISTED"
         ? `Your booking "${title}" has been waitlisted at position ${waitlistEntry?.position}.`
+        : bookingStatus === "APPROVED"
+        ? `Your booking "${title}" for "${resource.name}" has been automatically confirmed.`
         : `Your booking "${title}" is pending approval.`,
       metadata: { bookingId: booking.id },
     });

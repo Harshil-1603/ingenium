@@ -131,6 +131,62 @@ async function main() {
     });
   }
 
+  // Sample pending bookings so the Approvals tab is populated from the start
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+
+  const bookingSeeds = [
+    {
+      id: "seed-booking-1",
+      title: "CS Club Weekly Meeting",
+      description: "Weekly team sync for the CS club",
+      userId: clubAdmin.id,
+      resourceId: "seed-lhc-room-101",
+      startTime: new Date(tomorrow.getTime() + 10 * 60 * 60 * 1000),
+      endTime: new Date(tomorrow.getTime() + 12 * 60 * 60 * 1000),
+      status: "PENDING" as const,
+    },
+    {
+      id: "seed-booking-2",
+      title: "Algorithm Study Group",
+      description: "Final exam prep session",
+      userId: student.id,
+      resourceId: "seed-cs-lab-a",
+      startTime: new Date(tomorrow.getTime() + 14 * 60 * 60 * 1000),
+      endTime: new Date(tomorrow.getTime() + 16 * 60 * 60 * 1000),
+      status: "PENDING" as const,
+    },
+    {
+      id: "seed-booking-3",
+      title: "Project Presentation Practice",
+      description: "Dry run for semester project demo",
+      userId: student.id,
+      resourceId: "seed-conference-room-b",
+      startTime: new Date(tomorrow.getTime() + 9 * 60 * 60 * 1000),
+      endTime: new Date(tomorrow.getTime() + 11 * 60 * 60 * 1000),
+      status: "PENDING" as const,
+    },
+    {
+      id: "seed-booking-4",
+      title: "Hackathon Equipment Pickup",
+      description: "Collecting projector for the hackathon event",
+      userId: clubAdmin.id,
+      resourceId: "seed-projector-unit-#1",
+      startTime: new Date(tomorrow.getTime() + 8 * 60 * 60 * 1000),
+      endTime: new Date(tomorrow.getTime() + 10 * 60 * 60 * 1000),
+      status: "PENDING" as const,
+    },
+  ];
+
+  for (const b of bookingSeeds) {
+    await prisma.booking.upsert({
+      where: { id: b.id },
+      update: {},
+      create: b,
+    });
+  }
+
   console.log("Seed completed!");
   console.log("\nTest accounts (all passwords: password123):");
   console.log("  Super Admin:         admin@campusgrid.edu");
