@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  CLUB_ADMIN
+  DEPARTMENT_OFFICER
+  SUPER_ADMIN
+}
+
+enum ResourceType {
+  ROOM
+  EQUIPMENT
+  ASSET
+}
+
+enum BookingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  WAITLISTED
+}
+
+enum WaitlistStatus {
+  WAITING
+  PROMOTED
+  EXPIRED
+  CANCELLED
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  password       String
+  name           String
+  role           Role     @default(STUDENT)
+  department     String?
+  phone          String?
+  avatarUrl      String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  bookings       Booking[]       @relation("UserBookings")
+  approvals      Booking[]       @relation("ApprovedBookings")
+  ownedResources Resource[]      @relation("ResourceOwner")
+  auditLogs      AuditLog[]
+  notifications  Notification[]
+  waitlistEntries WaitlistEntry[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Resource {
+  id              String       @id @default(cuid())
+  name            String
+  type            ResourceType
+  description     String?
+  location        String?
+  capacity        Int?
+  imageUrl        String?
+  isActive        Boolean      @default(true)
+  requiresApproval Boolean     @default(true)
+  maxBookingHours Int          @default(4)
+  minBookingHours Int          @default(1)
+  availableFrom   String       @default("08:00")
+  availableTo     String       @default("22:00")
+  availableDays   Int[]        @default([1, 2, 3, 4, 5])
+  ownerId         String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  owner           User?        @relation("ResourceOwner", fields: [ownerId], references: [id])
+  bookings        Booking[]
+  waitlistEntries WaitlistEntry[]
+
+  @@index([type])
+  @@index([ownerId])
+}
+
+model Booking {
+  id              String        @id @default(cuid())
+  title           String
+  description     String?
+  startTime       DateTime
+  endTime         DateTime
+  status          BookingStatus @default(PENDING)
+  approvalComment String?
+  resourceId      String
+  userId          String
+  approvedById    String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  resource        Resource      @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  user            User          @relation("UserBookings", fields: [userId], references: [id])
+  approvedBy      User?         @relation("ApprovedBookings", fields: [approvedById], references: [id])
+  waitlistEntry   WaitlistEntry?
+
+  @@index([resourceId])
+  @@index([userId])
+  @@index([status])
+  @@index([startTime, endTime])
+}
+
+model WaitlistEntry {
+  id         String         @id @default(cuid())
+  position   Int
+  status     WaitlistStatus @default(WAITING)
+  bookingId  String         @unique
+  resourceId String
+  userId     String
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  booking    Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  resource   Resource       @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  user       User           @relation(fields: [userId], references: [id])
+
+  @@index([resourceId, status])
+  @@index([position])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String
+  entityType String
+  entityId   String
+  userId     String
+  metadata   Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  userId    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, read])
+  @@index([createdAt])
+}
