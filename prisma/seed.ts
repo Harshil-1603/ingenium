@@ -117,16 +117,16 @@ async function main() {
 
   for (const room of rooms) {
     await prisma.resource.upsert({
-      where: { id: `seed-${room.name.toLowerCase().replace(/\s+/g, "-")}` },
+      where: { id: `seed-${room.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+$/, "")}` },
       update: {},
       create: {
-        id: `seed-${room.name.toLowerCase().replace(/\s+/g, "-")}`,
+        id: `seed-${room.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+$/, "")}`,
         ...room,
         requiresApproval: true,
         maxBookingHours: room.type === "ROOM" ? 4 : 24,
         availableFrom: "08:00",
         availableTo: "22:00",
-        availableDays: [1, 2, 3, 4, 5],
+        availableDays: room.type === "ROOM" ? [1, 2, 3, 4, 5] : [0, 1, 2, 3, 4, 5, 6],
       },
     });
   }
@@ -172,7 +172,7 @@ async function main() {
       title: "Hackathon Equipment Pickup",
       description: "Collecting projector for the hackathon event",
       userId: clubAdmin.id,
-      resourceId: "seed-projector-unit-#1",
+      resourceId: "seed-projector-unit-1",
       startTime: new Date(tomorrow.getTime() + 8 * 60 * 60 * 1000),
       endTime: new Date(tomorrow.getTime() + 10 * 60 * 60 * 1000),
       status: "PENDING" as const,
