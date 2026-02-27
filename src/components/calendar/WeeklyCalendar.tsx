@@ -1,57 +1,73 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Calendar } from "lucide-react";
 import { getStatusColor } from "@/lib/utils";
 
-interface CalendarSlot {
+interface Resource {
+  id: string;
+  name: string;
+  type: string;
+  location: string;
+  capacity: number | null;
+}
+
+interface BookingSlot {
   id: string;
   title: string;
   startTime: string;
   endTime: string;
   status: string;
+  resourceId: string;
   userId: string;
   userName: string;
 }
 
-interface WeeklyCalendarProps {
+interface MergedBlock {
+  key: string;
+  ids: string[];
+  title: string;
+  startTime: Date;
+  endTime: Date;
+  status: string;
   resourceId: string;
-  onSlotClick?: (slot: CalendarSlot) => void;
-  onEmptySlotClick?: (date: Date, hour: number) => void;
+  userId: string;
+  userName: string;
+}
+
+interface DailyCalendarProps {
+  date: string;
+  onEmptySlotClick?: (resourceId: string, date: string, hour: number) => void;
+  onSlotClick?: (slot: BookingSlot) => void;
+  refreshKey?: number;
 }
 
 const HOURS = Array.from({ length: 15 }, (_, i) => i + 8);
-const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const FIRST_HOUR = 8;
+const CELL_HEIGHT = 48;
 
-export function WeeklyCalendar({ resourceId, onSlotClick, onEmptySlotClick }: WeeklyCalendarProps) {
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [slots, setSlots] = useState<CalendarSlot[]>([]);
+export function DailyCalendar({ date, onEmptySlotClick, onSlotClick, refreshKey }: DailyCalendarProps) {
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [bookings, setBookings] = useState<BookingSlot[]>([]);
   const [loading, setLoading] = useState(true);
-  const [resourceName, setResourceName] = useState("");
-
-  const weekStart = getMonday(currentDate);
-
-  function getMonday(d: Date) {
-    const date = new Date(d);
-    const day = date.getDay();
-    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-    date.setDate(diff);
-    date.setHours(0, 0, 0, 0);
-    return date;
-  }
+  const [typeFilter, setTypeFilter] = useState<string>("ALL");
 
   useEffect(() => {
     fetchCalendar();
-  }, [resourceId, currentDate]);
+  }, [date, refreshKey]);
 
   async function fetchCalendar() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/calendar/${resourceId}?date=${currentDate.toISOString()}`);
+      const dayStart = new Date(`${date}T00:00:00`);
+      const dayEnd = new Date(`${date}T23:59:59.999`);
+      const res = await fetch(
+        `/api/calendar/daily?start=${dayStart.toISOString()}&end=${dayEnd.toISOString()}&t=${Date.now()}`
+      );
       const data = await res.json();
       if (data.success) {
-        setSlots(data.data.slots);
-        setResourceName(data.data.resourceName);
+        setResources(data.data.resources);
+        setBookings(data.data.bookings);
       }
     } catch {
     } finally {
@@ -59,127 +75,224 @@ export function WeeklyCalendar({ resourceId, onSlotClick, onEmptySlotClick }: We
     }
   }
 
-  function prevWeek() {
-    const d = new Date(currentDate);
-    d.setDate(d.getDate() - 7);
-    setCurrentDate(d);
+  const filteredResources =
+    typeFilter === "ALL" ? resources : resources.filter((r) => r.type === typeFilter);
+
+  const resourceTypes = [...new Set(resources.map((r) => r.type))];
+
+  const mergedByResource = useMemo(() => {
+    const dayRef = new Date(`${date}T00:00:00`);
+    const map = new Map<string, MergedBlock[]>();
+
+    for (const resource of resources) {
+      const resourceBookings = bookings
+        .filter((b) => b.resourceId === resource.id)
+        .map((b) => ({ ...b, start: new Date(b.startTime), end: new Date(b.endTime) }))
+        .sort((a, b) => a.start.getTime() - b.start.getTime());
+
+      const merged: MergedBlock[] = [];
+      for (const b of resourceBookings) {
+        const last = merged[merged.length - 1];
+        if (
+          last &&
+          last.userId === b.userId &&
+          last.endTime.getTime() >= b.start.getTime()
+        ) {
+          if (b.end > last.endTime) last.endTime = b.end;
+          last.ids.push(b.id);
+          if (!last.title.includes(b.title)) last.title += ` + ${b.title}`;
+          if (b.status === "PENDING") last.status = "PENDING";
+        } else {
+          merged.push({
+            key: b.id,
+            ids: [b.id],
+            title: b.title,
+            startTime: b.start,
+            endTime: b.end,
+            status: b.status,
+            resourceId: b.resourceId,
+            userId: b.userId,
+            userName: b.userName,
+          });
+        }
+      }
+      map.set(resource.id, merged);
+    }
+    return map;
+  }, [bookings, resources, date]);
+
+  function getBlockStyle(block: MergedBlock): React.CSSProperties {
+    const dayRef = new Date(`${date}T00:00:00`);
+    const startH = (block.startTime.getTime() - dayRef.getTime()) / 3_600_000;
+    const endH = (block.endTime.getTime() - dayRef.getTime()) / 3_600_000;
+    const clampedStart = Math.max(startH, FIRST_HOUR);
+    const clampedEnd = Math.min(endH, FIRST_HOUR + HOURS.length);
+    const top = (clampedStart - FIRST_HOUR) * CELL_HEIGHT + 2;
+    const height = Math.max((clampedEnd - clampedStart) * CELL_HEIGHT - 4, 20);
+    return { top: `${top}px`, height: `${height}px` };
   }
 
-  function nextWeek() {
-    const d = new Date(currentDate);
-    d.setDate(d.getDate() + 7);
-    setCurrentDate(d);
+  function isCellOccupied(resourceId: string, hour: number): boolean {
+    const cellStart = new Date(`${date}T${hour.toString().padStart(2, "0")}:00:00`);
+    const cellEnd = new Date(`${date}T${(hour + 1).toString().padStart(2, "0")}:00:00`);
+    return bookings.some(
+      (b) =>
+        b.resourceId === resourceId &&
+        new Date(b.startTime) < cellEnd &&
+        new Date(b.endTime) > cellStart
+    );
   }
 
-  function goToday() {
-    setCurrentDate(new Date());
-  }
-
-  function getSlotsForCell(dayIndex: number, hour: number): CalendarSlot[] {
-    const cellDate = new Date(weekStart);
-    cellDate.setDate(cellDate.getDate() + dayIndex);
-
-    return slots.filter((slot) => {
-      const start = new Date(slot.startTime);
-      const end = new Date(slot.endTime);
-      const cellStart = new Date(cellDate);
-      cellStart.setHours(hour, 0, 0, 0);
-      const cellEnd = new Date(cellDate);
-      cellEnd.setHours(hour + 1, 0, 0, 0);
-      return start < cellEnd && end > cellStart;
-    });
-  }
-
-  function formatWeekRange() {
-    const end = new Date(weekStart);
-    end.setDate(end.getDate() + 6);
-    const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
-    return `${weekStart.toLocaleDateString("en-US", opts)} — ${end.toLocaleDateString("en-US", { ...opts, year: "numeric" })}`;
-  }
+  const colTemplate = `80px repeat(${filteredResources.length}, minmax(140px, 1fr))`;
 
   return (
     <div className="card overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">{resourceName || "Calendar"}</h2>
-          <p className="text-sm text-gray-500">{formatWeekRange()}</p>
+      {resourceTypes.length > 1 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          <button
+            onClick={() => setTypeFilter("ALL")}
+            className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+              typeFilter === "ALL"
+                ? "bg-brand-600 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            All
+          </button>
+          {resourceTypes.map((type) => (
+            <button
+              key={type}
+              onClick={() => setTypeFilter(type)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                typeFilter === type
+                  ? "bg-brand-600 text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {type.charAt(0) + type.slice(1).toLowerCase() + "s"}
+            </button>
+          ))}
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={prevWeek} className="btn-ghost p-2">
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <button onClick={goToday} className="btn-secondary text-xs px-3 py-1.5">
-            Today
-          </button>
-          <button onClick={nextWeek} className="btn-ghost p-2">
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-brand-600" />
         </div>
+      ) : filteredResources.length === 0 ? (
+        <div className="text-center py-16">
+          <p className="text-gray-500">No resources available.</p>
+        </div>
       ) : (
         <div className="overflow-x-auto scrollbar-thin">
-          <div className="min-w-[800px]">
-            <div className="grid grid-cols-[80px_repeat(7,1fr)] border-b border-gray-200">
-              <div className="p-2" />
-              {DAY_LABELS.map((day, i) => {
-                const d = new Date(weekStart);
-                d.setDate(d.getDate() + i);
-                const isToday = d.toDateString() === new Date().toDateString();
+          <div style={{ minWidth: `${80 + filteredResources.length * 150}px` }}>
+            {/* Column headers */}
+            <div
+              className="grid border-b border-gray-200 sticky top-0 bg-white z-10"
+              style={{ gridTemplateColumns: colTemplate }}
+            >
+              <div className="p-2 flex items-center justify-center">
+                <Calendar className="h-4 w-4 text-gray-400" />
+              </div>
+              {filteredResources.map((resource) => (
+                <div key={resource.id} className="border-l border-gray-200 p-2 text-center">
+                  <div className="text-xs font-semibold text-gray-900 truncate">{resource.name}</div>
+                  {resource.location && (
+                    <div className="text-[10px] text-gray-500 truncate">{resource.location}</div>
+                  )}
+                  <div className="text-[10px] text-gray-400">
+                    {resource.type.charAt(0) + resource.type.slice(1).toLowerCase()}
+                    {resource.capacity ? ` · ${resource.capacity} seats` : ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Calendar body: time labels + resource columns with absolute booking blocks */}
+            <div className="grid" style={{ gridTemplateColumns: colTemplate }}>
+              {/* Time labels */}
+              <div>
+                {HOURS.map((hour) => (
+                  <div
+                    key={hour}
+                    className="border-b border-gray-100 p-2 text-right text-xs text-gray-400 font-medium"
+                    style={{ height: `${CELL_HEIGHT}px` }}
+                  >
+                    {hour.toString().padStart(2, "0")}:00
+                  </div>
+                ))}
+              </div>
+
+              {/* Resource columns */}
+              {filteredResources.map((resource) => {
+                const blocks = mergedByResource.get(resource.id) || [];
                 return (
-                  <div key={day} className="border-l border-gray-200 p-2 text-center">
-                    <div className={`text-xs font-medium ${isToday ? "text-brand-600" : "text-gray-500"}`}>{day}</div>
-                    <div className={`text-lg font-semibold ${isToday ? "text-brand-600" : "text-gray-900"}`}>{d.getDate()}</div>
+                  <div
+                    key={resource.id}
+                    className="relative border-l border-gray-100"
+                    style={{ height: `${HOURS.length * CELL_HEIGHT}px` }}
+                  >
+                    {/* Hour grid lines (also serve as click targets for empty slots) */}
+                    {HOURS.map((hour) => (
+                      <div
+                        key={hour}
+                        className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors cursor-pointer"
+                        style={{ height: `${CELL_HEIGHT}px` }}
+                        onClick={() => {
+                          if (!isCellOccupied(resource.id, hour) && onEmptySlotClick) {
+                            onEmptySlotClick(resource.id, date, hour);
+                          }
+                        }}
+                      />
+                    ))}
+
+                    {/* Merged booking blocks positioned absolutely */}
+                    {blocks.map((block) => (
+                      <div
+                        key={block.key}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSlotClick?.({
+                            id: block.ids[0],
+                            title: block.title,
+                            startTime: block.startTime.toISOString(),
+                            endTime: block.endTime.toISOString(),
+                            status: block.status,
+                            resourceId: block.resourceId,
+                            userId: block.userId,
+                            userName: block.userName,
+                          });
+                        }}
+                        className={`absolute left-0.5 right-0.5 rounded-md px-2 py-1 text-[11px] leading-tight cursor-pointer overflow-hidden z-[5] flex flex-col justify-center ${getStatusColor(block.status)}`}
+                        style={getBlockStyle(block)}
+                      >
+                        <div className="font-medium truncate">{block.title}</div>
+                        <div className="truncate opacity-75">{block.userName}</div>
+                      </div>
+                    ))}
                   </div>
                 );
               })}
             </div>
-
-            {HOURS.map((hour) => (
-              <div key={hour} className="grid grid-cols-[80px_repeat(7,1fr)] border-b border-gray-100">
-                <div className="p-2 text-right text-xs text-gray-400 font-medium">
-                  {hour.toString().padStart(2, "0")}:00
-                </div>
-                {DAY_LABELS.map((_, dayIndex) => {
-                  const cellSlots = getSlotsForCell(dayIndex, hour);
-                  const cellDate = new Date(weekStart);
-                  cellDate.setDate(cellDate.getDate() + dayIndex);
-
-                  return (
-                    <div
-                      key={dayIndex}
-                      className="relative border-l border-gray-100 min-h-[48px] hover:bg-gray-50/50 cursor-pointer transition-colors"
-                      onClick={() => {
-                        if (cellSlots.length === 0 && onEmptySlotClick) {
-                          onEmptySlotClick(cellDate, hour);
-                        }
-                      }}
-                    >
-                      {cellSlots.map((slot) => (
-                        <div
-                          key={slot.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSlotClick?.(slot);
-                          }}
-                          className={`absolute inset-x-0.5 top-0.5 bottom-0.5 rounded-md px-1.5 py-0.5 text-[11px] leading-tight cursor-pointer overflow-hidden ${getStatusColor(slot.status)}`}
-                        >
-                          <div className="font-medium truncate">{slot.title}</div>
-                          <div className="truncate opacity-75">{slot.userName}</div>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
           </div>
         </div>
       )}
+
+      {/* Legend */}
+      <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-100">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-yellow-100 border border-yellow-300" />
+          <span className="text-xs text-gray-500">Pending</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-green-100 border border-green-300" />
+          <span className="text-xs text-gray-500">Approved</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-gray-50 border border-gray-200" />
+          <span className="text-xs text-gray-500">Available</span>
+        </div>
+      </div>
     </div>
   );
 }

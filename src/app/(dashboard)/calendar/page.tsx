@@ -1,53 +1,39 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
-import { WeeklyCalendar } from "@/components/calendar/WeeklyCalendar";
+import { DailyCalendar } from "@/components/calendar/WeeklyCalendar";
 import { Modal } from "@/components/ui/Modal";
 import { toast } from "@/components/ui/Toaster";
-import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-
-interface Resource {
-  id: string;
-  name: string;
-  type: string;
-  location: string;
-}
 
 export default function CalendarPage() {
   const { user } = useAuth();
-  const [resources, setResources] = useState<Resource[]>([]);
-  const [selectedResource, setSelectedResource] = useState<string>("");
-  const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")}`;
+  });
   const [bookingModal, setBookingModal] = useState(false);
-  const [bookingForm, setBookingForm] = useState({ title: "", description: "", date: "", startHour: "09", endHour: "10" });
+  const [bookingForm, setBookingForm] = useState({
+    title: "",
+    description: "",
+    resourceId: "",
+    resourceName: "",
+    date: "",
+    startHour: "09",
+    endHour: "10",
+  });
   const [submitting, setSubmitting] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
-    fetchResources();
-  }, []);
-
-  async function fetchResources() {
-    try {
-      const res = await fetch("/api/resources?pageSize=50");
-      const data = await res.json();
-      if (data.success && data.data.length > 0) {
-        setResources(data.data);
-        setSelectedResource(data.data[0].id);
-      }
-    } catch {
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function handleEmptySlotClick(date: Date, hour: number) {
-    const dateStr = date.toISOString().split("T")[0];
+  function handleEmptySlotClick(resourceId: string, date: string, hour: number) {
     setBookingForm({
       title: "",
       description: "",
-      date: dateStr,
+      resourceId,
+      resourceName: "",
+      date,
       startHour: hour.toString().padStart(2, "0"),
       endHour: (hour + 1).toString().padStart(2, "0"),
     });
@@ -67,7 +53,7 @@ export default function CalendarPage() {
         body: JSON.stringify({
           title: bookingForm.title,
           description: bookingForm.description,
-          resourceId: selectedResource,
+          resourceId: bookingForm.resourceId,
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
         }),
@@ -75,8 +61,12 @@ export default function CalendarPage() {
 
       const data = await res.json();
       if (data.success) {
-        toast("success", data.data.status === "WAITLISTED" ? "Added to waitlist" : "Booking submitted!");
+        toast(
+          "success",
+          data.data.status === "WAITLISTED" ? "Added to waitlist" : "Booking submitted!"
+        );
         setBookingModal(false);
+        setRefreshKey((prev) => prev + 1);
       } else {
         toast("error", data.error);
       }
@@ -87,6 +77,42 @@ export default function CalendarPage() {
     }
   }
 
+  function prevDay() {
+    const d = new Date(`${selectedDate}T12:00:00`);
+    d.setDate(d.getDate() - 1);
+    setSelectedDate(
+      `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`
+    );
+  }
+
+  function nextDay() {
+    const d = new Date(`${selectedDate}T12:00:00`);
+    d.setDate(d.getDate() + 1);
+    setSelectedDate(
+      `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`
+    );
+  }
+
+  function goToday() {
+    const now = new Date();
+    setSelectedDate(
+      `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")}`
+    );
+  }
+
+  const displayDate = new Date(`${selectedDate}T12:00:00`).toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const todayStr = (() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")}`;
+  })();
+  const isToday = selectedDate === todayStr;
+
   if (!user) return null;
 
   return (
@@ -94,38 +120,43 @@ export default function CalendarPage() {
       <Header user={user} title="Calendar" />
 
       <div className="p-6">
-        {loading ? (
-          <LoadingSpinner />
-        ) : resources.length === 0 ? (
-          <div className="card text-center py-16">
-            <p className="text-gray-500">No resources available. Ask an admin to create resources.</p>
+        {/* Date navigation */}
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">{displayDate}</h2>
+            {isToday && <span className="text-xs font-medium text-brand-600">Today</span>}
           </div>
-        ) : (
-          <>
-            <div className="mb-6 flex flex-wrap items-center gap-3">
-              <label className="text-sm font-medium text-gray-700">Resource:</label>
-              <select
-                value={selectedResource}
-                onChange={(e) => setSelectedResource(e.target.value)}
-                className="input-field w-auto min-w-[250px]"
-              >
-                {resources.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name} {r.location ? `(${r.location})` : ""} — {r.type}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="flex items-center gap-2">
+            <button onClick={prevDay} className="btn-ghost p-2" title="Previous day">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
+              className="input-field w-auto text-sm"
+            />
+            <button
+              onClick={goToday}
+              className={`btn-secondary text-xs px-3 py-1.5 ${isToday ? "opacity-50" : ""}`}
+              disabled={isToday}
+            >
+              Today
+            </button>
+            <button onClick={nextDay} className="btn-ghost p-2" title="Next day">
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
 
-            {selectedResource && (
-              <WeeklyCalendar
-                resourceId={selectedResource}
-                onEmptySlotClick={handleEmptySlotClick}
-              />
-            )}
-          </>
-        )}
+        {/* Calendar grid */}
+        <DailyCalendar
+          date={selectedDate}
+          onEmptySlotClick={handleEmptySlotClick}
+          refreshKey={refreshKey}
+        />
 
+        {/* Booking modal */}
         <Modal open={bookingModal} onClose={() => setBookingModal(false)} title="Quick Book">
           <form onSubmit={handleBookingSubmit} className="space-y-4">
             <div>
@@ -152,27 +183,47 @@ export default function CalendarPage() {
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                <input type="date" required value={bookingForm.date} onChange={(e) => setBookingForm({ ...bookingForm, date: e.target.value })} className="input-field" />
+                <input
+                  type="date"
+                  required
+                  value={bookingForm.date}
+                  onChange={(e) => setBookingForm({ ...bookingForm, date: e.target.value })}
+                  className="input-field"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Start</label>
-                <select value={bookingForm.startHour} onChange={(e) => setBookingForm({ ...bookingForm, startHour: e.target.value })} className="input-field">
+                <select
+                  value={bookingForm.startHour}
+                  onChange={(e) => setBookingForm({ ...bookingForm, startHour: e.target.value })}
+                  className="input-field"
+                >
                   {Array.from({ length: 15 }, (_, i) => i + 8).map((h) => (
-                    <option key={h} value={h.toString().padStart(2, "0")}>{h.toString().padStart(2, "0")}:00</option>
+                    <option key={h} value={h.toString().padStart(2, "0")}>
+                      {h.toString().padStart(2, "0")}:00
+                    </option>
                   ))}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">End</label>
-                <select value={bookingForm.endHour} onChange={(e) => setBookingForm({ ...bookingForm, endHour: e.target.value })} className="input-field">
+                <select
+                  value={bookingForm.endHour}
+                  onChange={(e) => setBookingForm({ ...bookingForm, endHour: e.target.value })}
+                  className="input-field"
+                >
                   {Array.from({ length: 15 }, (_, i) => i + 8).map((h) => (
-                    <option key={h} value={h.toString().padStart(2, "0")}>{h.toString().padStart(2, "0")}:00</option>
+                    <option key={h} value={h.toString().padStart(2, "0")}>
+                      {h.toString().padStart(2, "0")}:00
+                    </option>
                   ))}
                 </select>
               </div>
             </div>
             <div className="flex justify-end gap-3 pt-2">
-              <button type="button" onClick={() => setBookingModal(false)} className="btn-secondary">Cancel</button>
+              <button type="button" onClick={() => setBookingModal(false)} className="btn-secondary">
+                Cancel
+              </button>
               <button type="submit" disabled={submitting} className="btn-primary">
                 {submitting ? "Submitting..." : "Book Now"}
               </button>

@@ -29,8 +29,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       where: {
         resourceId,
         status: { in: ["PENDING", "APPROVED"] },
-        startTime: { gte: start },
-        endTime: { lte: end },
+        startTime: { lt: end },
+        endTime: { gt: start },
       },
       include: {
         user: { select: { id: true, name: true } },
