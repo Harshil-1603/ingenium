@@ -57,6 +57,8 @@ export async function GET(request: NextRequest) {
       orderBy: { startTime: "asc" },
     });
 
+    console.log(`[Daily Calendar] range=${dayStart.toISOString()} → ${dayEnd.toISOString()} | resources=${resources.length} bookings=${bookings.length}`);
+
     return NextResponse.json({
       success: true,
       data: {

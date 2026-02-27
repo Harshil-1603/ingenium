@@ -32,13 +32,13 @@ const sections: NavSection[] = [
   {
     items: [
       { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ALL_ROLES },
+      { name: "Calendar", href: "/calendar", icon: Calendar, roles: ALL_ROLES },
     ],
   },
   {
     label: "Rooms",
     items: [
       { name: "Room Directory", href: "/rooms", icon: DoorOpen, roles: ALL_ROLES },
-      { name: "Room Calendar", href: "/calendar", icon: Calendar, roles: ALL_ROLES },
       { name: "Room Bookings", href: "/room-bookings", icon: BookOpen, roles: ALL_ROLES },
     ],
   },

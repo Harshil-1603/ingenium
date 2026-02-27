@@ -278,19 +278,26 @@ export function DailyCalendar({ date, onEmptySlotClick, onSlotClick, refreshKey 
         </div>
       )}
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-100">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-yellow-100 border border-yellow-300" />
-          <span className="text-xs text-gray-500">Pending</span>
+      {/* Footer: booking count + legend */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4 border-t border-gray-100">
+        <div className="text-xs text-gray-500">
+          {bookings.length === 0
+            ? "No bookings for this date"
+            : `${bookings.length} booking${bookings.length !== 1 ? "s" : ""} on this date`}
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-green-100 border border-green-300" />
-          <span className="text-xs text-gray-500">Approved</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-gray-50 border border-gray-200" />
-          <span className="text-xs text-gray-500">Available</span>
+        <div className="flex flex-wrap gap-3">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-yellow-100 border border-yellow-300" />
+            <span className="text-xs text-gray-500">Pending</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-green-100 border border-green-300" />
+            <span className="text-xs text-gray-500">Approved</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-gray-50 border border-gray-200" />
+            <span className="text-xs text-gray-500">Available</span>
+          </div>
         </div>
       </div>
     </div>
