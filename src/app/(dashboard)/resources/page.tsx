@@ -8,8 +8,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { toast } from "@/components/ui/Toaster";
 import { getResourceTypeLabel } from "@/lib/utils";
-import { Plus, Box, MapPin, Users as UsersIcon, Clock, Search } from "lucide-react";
-import Link from "next/link";
+import { Plus, Box, MapPin, Clock, Search, Tag } from "lucide-react";
 
 interface Resource {
   id: string;
@@ -35,8 +34,8 @@ export default function ResourcesPage() {
   const [createModal, setCreateModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
-    name: "", type: "ROOM" as string, description: "", location: "", capacity: "",
-    requiresApproval: true, maxBookingHours: "4", availableFrom: "08:00", availableTo: "22:00",
+    name: "", type: "EQUIPMENT" as string, description: "", location: "",
+    requiresApproval: true, maxBookingHours: "24", availableFrom: "08:00", availableTo: "22:00",
   });
 
   useEffect(() => { fetchResources(); }, [search, typeFilter]);
@@ -46,10 +45,14 @@ export default function ResourcesPage() {
     try {
       const params = new URLSearchParams({ pageSize: "50" });
       if (search) params.set("search", search);
-      if (typeFilter) params.set("type", typeFilter);
+      const filterType = typeFilter || "";
       const res = await fetch(`/api/resources?${params}`);
       const data = await res.json();
-      if (data.success) setResources(data.data);
+      if (data.success) {
+        let filtered = data.data.filter((r: Resource) => r.type === "EQUIPMENT" || r.type === "ASSET");
+        if (filterType) filtered = filtered.filter((r: Resource) => r.type === filterType);
+        setResources(filtered);
+      }
     } catch {} finally { setLoading(false); }
   }
 
@@ -62,30 +65,32 @@ export default function ResourcesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: form.name, type: form.type, description: form.description || undefined,
-          location: form.location || undefined, capacity: form.capacity ? Number(form.capacity) : undefined,
+          location: form.location || undefined,
           requiresApproval: form.requiresApproval, maxBookingHours: Number(form.maxBookingHours),
           availableFrom: form.availableFrom, availableTo: form.availableTo,
         }),
       });
       const data = await res.json();
       if (data.success) {
-        toast("success", "Resource created!");
+        toast("success", "Resource added!");
         setCreateModal(false);
+        setForm({ name: "", type: "EQUIPMENT", description: "", location: "", requiresApproval: true, maxBookingHours: "24", availableFrom: "08:00", availableTo: "22:00" });
         fetchResources();
       } else {
         toast("error", data.error);
       }
-    } catch { toast("error", "Failed to create resource"); } finally { setSubmitting(false); }
+    } catch { toast("error", "Failed to add resource"); } finally { setSubmitting(false); }
   }
 
   if (!user) return null;
-
-  const canCreate = ["DEPARTMENT_OFFICER", "SUPER_ADMIN"].includes(user.role);
+  const canCreate = ["DEPARTMENT_OFFICER", "SUPER_ADMIN", "CLUB_ADMIN"].includes(user.role);
 
   return (
     <div>
-      <Header user={user} title="Resources" />
+      <Header user={user} title="Resource Directory" />
       <div className="p-6">
+        <p className="text-sm text-gray-500 mb-6">Equipment, tools, and shared assets available for booking.</p>
+
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -98,7 +103,6 @@ export default function ResourcesPage() {
             </div>
             <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="input-field w-auto">
               <option value="">All Types</option>
-              <option value="ROOM">Room</option>
               <option value="EQUIPMENT">Equipment</option>
               <option value="ASSET">Asset</option>
             </select>
@@ -113,7 +117,7 @@ export default function ResourcesPage() {
         {loading ? <LoadingSpinner /> : resources.length === 0 ? (
           <EmptyState
             title="No resources found"
-            description={canCreate ? "Add your first resource to get started." : "No resources are available yet."}
+            description={canCreate ? "Add equipment or assets for others to book." : "No equipment or assets are available yet."}
             icon={<Box className="h-8 w-8 text-gray-400" />}
           />
         ) : (
@@ -123,10 +127,13 @@ export default function ResourcesPage() {
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <h3 className="font-semibold text-gray-900">{r.name}</h3>
-                    <span className="badge bg-gray-100 text-gray-700 mt-1">{getResourceTypeLabel(r.type)}</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Tag className="h-3 w-3 text-gray-400" />
+                      <span className="badge bg-indigo-50 text-indigo-700">{getResourceTypeLabel(r.type)}</span>
+                    </div>
                   </div>
                   <span className={`badge ${r.requiresApproval ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"}`}>
-                    {r.requiresApproval ? "Approval Required" : "Auto-approve"}
+                    {r.requiresApproval ? "Needs Approval" : "Auto-approve"}
                   </span>
                 </div>
                 {r.description && <p className="text-sm text-gray-500 mb-3">{r.description}</p>}
@@ -134,20 +141,10 @@ export default function ResourcesPage() {
                   {r.location && (
                     <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-gray-400" />{r.location}</div>
                   )}
-                  {r.capacity && (
-                    <div className="flex items-center gap-2"><UsersIcon className="h-3.5 w-3.5 text-gray-400" />Capacity: {r.capacity}</div>
-                  )}
-                  <div className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-gray-400" />{r.availableFrom} — {r.availableTo}</div>
+                  <div className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-gray-400" />{r.availableFrom} — {r.availableTo} · Max {r.maxBookingHours}h</div>
                 </div>
-                {r.owner && (
-                  <p className="mt-3 text-xs text-gray-400">Managed by {r.owner.name}</p>
-                )}
-                <div className="mt-4 flex items-center justify-between">
-                  <span className="text-xs text-gray-400">{r._count.bookings} bookings</span>
-                  <Link href={`/calendar?resource=${r.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-700">
-                    View Calendar
-                  </Link>
-                </div>
+                {r.owner && <p className="mt-3 text-xs text-gray-400">Managed by {r.owner.name}</p>}
+                <div className="mt-4 text-xs text-gray-400">{r._count.bookings} bookings</div>
               </div>
             ))}
           </div>
@@ -159,12 +156,11 @@ export default function ResourcesPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                  <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input-field" placeholder="LHC Room 101" />
+                  <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input-field" placeholder="Portable Projector" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
                   <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} className="input-field">
-                    <option value="ROOM">Room</option>
                     <option value="EQUIPMENT">Equipment</option>
                     <option value="ASSET">Asset</option>
                   </select>
@@ -172,40 +168,26 @@ export default function ResourcesPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input-field" rows={2} placeholder="Optional" />
+                <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input-field" rows={2} placeholder="Details about the resource..." />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                  <input type="text" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="input-field" placeholder="Building A, Floor 2" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Storage Location</label>
+                  <input type="text" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="input-field" placeholder="Equipment Store, Floor 1" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Capacity</label>
-                  <input type="number" value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} className="input-field" placeholder="50" />
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Available From</label>
-                  <input type="time" value={form.availableFrom} onChange={(e) => setForm({ ...form, availableFrom: e.target.value })} className="input-field" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Available To</label>
-                  <input type="time" value={form.availableTo} onChange={(e) => setForm({ ...form, availableTo: e.target.value })} className="input-field" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Max Hours</label>
-                  <input type="number" min={1} max={24} value={form.maxBookingHours} onChange={(e) => setForm({ ...form, maxBookingHours: e.target.value })} className="input-field" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Max Booking Hours</label>
+                  <input type="number" min={1} max={72} value={form.maxBookingHours} onChange={(e) => setForm({ ...form, maxBookingHours: e.target.value })} className="input-field" />
                 </div>
               </div>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={form.requiresApproval} onChange={(e) => setForm({ ...form, requiresApproval: e.target.checked })} className="rounded border-gray-300 text-brand-600 focus:ring-brand-600" />
-                <span className="text-sm text-gray-700">Requires approval before booking</span>
+                <span className="text-sm text-gray-700">Requires approval before checkout</span>
               </label>
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setCreateModal(false)} className="btn-secondary">Cancel</button>
                 <button type="submit" disabled={submitting} className="btn-primary">
-                  {submitting ? "Creating..." : "Create Resource"}
+                  {submitting ? "Creating..." : "Add Resource"}
                 </button>
               </div>
             </form>

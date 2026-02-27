@@ -113,15 +113,26 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Link href="/bookings" className="card hover:shadow-md transition-shadow group">
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Link href="/room-bookings" className="card hover:shadow-md transition-shadow group">
                 <div className="flex items-center gap-4">
                   <div className="rounded-xl bg-brand-50 p-3 group-hover:bg-brand-100 transition-colors">
                     <BookOpen className="h-6 w-6 text-brand-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900">New Booking</h3>
-                    <p className="text-sm text-gray-500">Book a room or resource</p>
+                    <h3 className="font-semibold text-gray-900">Book a Room</h3>
+                    <p className="text-sm text-gray-500">Reserve a lecture hall or lab</p>
+                  </div>
+                </div>
+              </Link>
+              <Link href="/resource-bookings" className="card hover:shadow-md transition-shadow group">
+                <div className="flex items-center gap-4">
+                  <div className="rounded-xl bg-purple-50 p-3 group-hover:bg-purple-100 transition-colors">
+                    <Box className="h-6 w-6 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Reserve Equipment</h3>
+                    <p className="text-sm text-gray-500">Borrow projectors, PA systems</p>
                   </div>
                 </div>
               </Link>
@@ -131,8 +142,8 @@ export default function DashboardPage() {
                     <TrendingUp className="h-6 w-6 text-indigo-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900">View Calendar</h3>
-                    <p className="text-sm text-gray-500">Check resource availability</p>
+                    <h3 className="font-semibold text-gray-900">Room Calendar</h3>
+                    <p className="text-sm text-gray-500">Check room availability</p>
                   </div>
                 </div>
               </Link>

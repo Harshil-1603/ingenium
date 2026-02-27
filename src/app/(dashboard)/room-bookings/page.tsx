@@ -8,7 +8,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { toast } from "@/components/ui/Toaster";
 import { getStatusColor, formatDateTime } from "@/lib/utils";
-import { Plus, BookOpen, X } from "lucide-react";
+import { Plus, DoorOpen, X } from "lucide-react";
 
 interface Booking {
   id: string;
@@ -19,23 +19,22 @@ interface Booking {
   status: string;
   approvalComment: string | null;
   createdAt: string;
-  resource: { id: string; name: string; type: string };
+  resource: { id: string; name: string; type: string; location?: string };
   user: { id: string; name: string };
   approvedBy: { name: string } | null;
   waitlistEntry: { position: number; status: string } | null;
 }
 
-interface Resource {
+interface Room {
   id: string;
   name: string;
-  type: string;
   location: string;
 }
 
-export default function BookingsPage() {
+export default function RoomBookingsPage() {
   const { user } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [resources, setResources] = useState<Resource[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
   const [createModal, setCreateModal] = useState(false);
@@ -44,7 +43,7 @@ export default function BookingsPage() {
     title: "", description: "", resourceId: "", date: "", startHour: "09", endHour: "10",
   });
 
-  useEffect(() => { fetchBookings(); fetchResources(); }, [statusFilter]);
+  useEffect(() => { fetchBookings(); fetchRooms(); }, [statusFilter]);
 
   async function fetchBookings() {
     setLoading(true);
@@ -53,15 +52,17 @@ export default function BookingsPage() {
       if (statusFilter) params.set("status", statusFilter);
       const res = await fetch(`/api/bookings?${params}`);
       const data = await res.json();
-      if (data.success) setBookings(data.data);
+      if (data.success) {
+        setBookings(data.data.filter((b: Booking) => b.resource.type === "ROOM"));
+      }
     } catch {} finally { setLoading(false); }
   }
 
-  async function fetchResources() {
+  async function fetchRooms() {
     try {
-      const res = await fetch("/api/resources?pageSize=50");
+      const res = await fetch("/api/resources?pageSize=50&type=ROOM");
       const data = await res.json();
-      if (data.success) setResources(data.data);
+      if (data.success) setRooms(data.data);
     } catch {}
   }
 
@@ -81,7 +82,7 @@ export default function BookingsPage() {
       });
       const data = await res.json();
       if (data.success) {
-        toast("success", data.data.status === "WAITLISTED" ? "Added to waitlist" : "Booking created!");
+        toast("success", data.data.status === "WAITLISTED" ? "Added to waitlist" : "Room booking created!");
         setCreateModal(false);
         setForm({ title: "", description: "", resourceId: "", date: "", startHour: "09", endHour: "10" });
         fetchBookings();
@@ -92,7 +93,7 @@ export default function BookingsPage() {
   }
 
   async function cancelBooking(id: string) {
-    if (!confirm("Cancel this booking?")) return;
+    if (!confirm("Cancel this room booking?")) return;
     try {
       const res = await fetch(`/api/bookings/${id}/cancel`, { method: "PATCH" });
       const data = await res.json();
@@ -105,7 +106,7 @@ export default function BookingsPage() {
 
   return (
     <div>
-      <Header user={user} title="My Bookings" />
+      <Header user={user} title="Room Bookings" />
       <div className="p-6">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
@@ -119,16 +120,16 @@ export default function BookingsPage() {
             </select>
           </div>
           <button onClick={() => setCreateModal(true)} className="btn-primary">
-            <Plus className="h-4 w-4 mr-2" /> New Booking
+            <Plus className="h-4 w-4 mr-2" /> Book a Room
           </button>
         </div>
 
         {loading ? <LoadingSpinner /> : bookings.length === 0 ? (
           <EmptyState
-            title="No bookings found"
-            description="Create your first booking to get started."
-            icon={<BookOpen className="h-8 w-8 text-gray-400" />}
-            action={<button onClick={() => setCreateModal(true)} className="btn-primary">Create Booking</button>}
+            title="No room bookings"
+            description="Book a room from the calendar or create a booking here."
+            icon={<DoorOpen className="h-8 w-8 text-gray-400" />}
+            action={<button onClick={() => setCreateModal(true)} className="btn-primary">Book a Room</button>}
           />
         ) : (
           <div className="space-y-3">
@@ -140,12 +141,10 @@ export default function BookingsPage() {
                       <h3 className="font-semibold text-gray-900">{b.title}</h3>
                       <span className={`badge ${getStatusColor(b.status)}`}>{b.status}</span>
                       {b.waitlistEntry && b.waitlistEntry.status === "WAITING" && (
-                        <span className="badge bg-purple-100 text-purple-800">
-                          Waitlist #{b.waitlistEntry.position}
-                        </span>
+                        <span className="badge bg-purple-100 text-purple-800">Waitlist #{b.waitlistEntry.position}</span>
                       )}
                     </div>
-                    <p className="mt-1 text-sm text-gray-600">{b.resource.name} ({b.resource.type})</p>
+                    <p className="mt-1 text-sm text-gray-600">{b.resource.name}</p>
                     <p className="text-sm text-gray-500">{formatDateTime(b.startTime)} — {formatDateTime(b.endTime)}</p>
                     {b.description && <p className="mt-2 text-sm text-gray-500">{b.description}</p>}
                     {b.approvalComment && (
@@ -166,20 +165,20 @@ export default function BookingsPage() {
           </div>
         )}
 
-        <Modal open={createModal} onClose={() => setCreateModal(false)} title="New Booking" maxWidth="max-w-xl">
+        <Modal open={createModal} onClose={() => setCreateModal(false)} title="Book a Room" maxWidth="max-w-xl">
           <form onSubmit={handleCreate} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Resource</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Room</label>
               <select required value={form.resourceId} onChange={(e) => setForm({ ...form, resourceId: e.target.value })} className="input-field">
-                <option value="">Select a resource</option>
-                {resources.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name} ({r.type}){r.location ? ` — ${r.location}` : ""}</option>
+                <option value="">Select a room</option>
+                {rooms.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}{r.location ? ` — ${r.location}` : ""}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-              <input type="text" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="input-field" placeholder="Meeting, Study Session..." />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Purpose / Title</label>
+              <input type="text" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="input-field" placeholder="Team Meeting, Lecture..." />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
@@ -210,7 +209,7 @@ export default function BookingsPage() {
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={() => setCreateModal(false)} className="btn-secondary">Cancel</button>
               <button type="submit" disabled={submitting} className="btn-primary">
-                {submitting ? "Submitting..." : "Create Booking"}
+                {submitting ? "Submitting..." : "Book Room"}
               </button>
             </div>
           </form>

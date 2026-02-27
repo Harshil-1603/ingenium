@@ -78,19 +78,24 @@ export default function ApprovalsPage() {
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-gray-500 mb-4">{bookings.length} pending request(s)</p>
-            {bookings.map((b) => (
+            {bookings.map((b) => {
+              const isRoom = b.resource.type === "ROOM";
+              return (
               <div key={b.id} className="card">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 flex-wrap">
                       <h3 className="font-semibold text-gray-900">{b.title}</h3>
                       <span className={`badge ${getStatusColor(b.status)}`}>{b.status}</span>
+                      <span className={`badge ${isRoom ? "bg-blue-50 text-blue-700" : "bg-indigo-50 text-indigo-700"}`}>
+                        {isRoom ? "Room" : b.resource.type === "EQUIPMENT" ? "Equipment" : "Asset"}
+                      </span>
                     </div>
                     <p className="mt-1 text-sm text-gray-600">
                       <span className="font-medium">{b.user.name}</span>
                       {b.user.department && <span className="text-gray-400"> — {b.user.department}</span>}
                     </p>
-                    <p className="text-sm text-gray-600">{b.resource.name} ({b.resource.type})</p>
+                    <p className="text-sm text-gray-600">{b.resource.name}</p>
                     <p className="text-sm text-gray-500">{formatDateTime(b.startTime)} — {formatDateTime(b.endTime)}</p>
                     {b.description && <p className="mt-2 text-sm text-gray-500">{b.description}</p>}
                   </div>
@@ -110,7 +115,8 @@ export default function ApprovalsPage() {
                   </div>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
 
