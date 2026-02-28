@@ -38,7 +38,6 @@ export const createBookingSchema = z.object({
   resourceId: z.string().min(1, "Resource is required"),
   startTime: z.string().datetime({ offset: true }).or(z.string().min(1)),
   endTime: z.string().datetime({ offset: true }).or(z.string().min(1)),
-  rollNumber: z.string().optional(), // required for STUDENT when requesting
 });
 
 export const approvalSchema = z.object({

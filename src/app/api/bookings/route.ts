@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { title, description, resourceId, startTime, endTime, rollNumber } = parsed.data;
+    const { title, description, resourceId, startTime, endTime } = parsed.data;
     const start = new Date(startTime);
     const end = new Date(endTime);
 
@@ -141,20 +141,6 @@ export async function POST(request: NextRequest) {
           { status: 403 }
         );
       }
-    }
-
-    if (user.role === "STUDENT" && (!rollNumber || String(rollNumber).trim() === "")) {
-      return NextResponse.json(
-        { success: false, error: "Roll number is required when requesting as a student" },
-        { status: 400 }
-      );
-    }
-
-    if (user.role === "STUDENT" && rollNumber) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { rollNumber: String(rollNumber).trim() },
-      });
     }
 
     const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
