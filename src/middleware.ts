@@ -5,6 +5,7 @@ import { verifyToken } from "./lib/jwt";
 function isPublic(pathname: string): boolean {
   if (pathname === "/" || pathname === "/login" || pathname === "/register") return true;
   if (pathname === "/api/auth/login" || pathname === "/api/auth/register") return true;
+  if (pathname.startsWith("/api/public/")) return true;
   if (pathname.startsWith("/_next")) return true;
   if (pathname.startsWith("/favicon")) return true;
   if (pathname.endsWith(".ico") || pathname.endsWith(".png") || pathname.endsWith(".svg")) return true;
