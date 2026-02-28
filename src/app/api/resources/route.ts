@@ -22,8 +22,12 @@ export async function GET(request: NextRequest) {
 
     const where: Record<string, unknown> = { isActive: true };
     if (type) where.type = type;
-    if (departmentId) where.departmentId = departmentId;
-    if (clubId) where.clubId = clubId;
+    if (user.role === "PROFESSOR") {
+      where.departmentId = { not: null };
+    } else {
+      if (departmentId) where.departmentId = departmentId;
+      if (clubId) where.clubId = clubId;
+    }
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },

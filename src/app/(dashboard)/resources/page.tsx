@@ -79,6 +79,9 @@ export default function ResourcesPage() {
       if (resData.success) {
         let filtered = resData.data.filter((r: Resource) => r.type === "EQUIPMENT" || r.type === "ASSET");
         if (filterType) filtered = filtered.filter((r: Resource) => r.type === filterType);
+        if (user?.role === "PROFESSOR") {
+          filtered = filtered.filter((r: Resource) => r.departmentId != null);
+        }
         setResources(filtered);
       }
       if (deptData.success) setDepartments(deptData.data);
@@ -186,7 +189,7 @@ export default function ResourcesPage() {
             <select value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value as "all" | "club" | "department")} className="input-field w-auto max-w-[140px]">
               <option value="all">All</option>
               <option value="department">By Department</option>
-              <option value="club">By Club</option>
+              {user.role !== "PROFESSOR" && <option value="club">By Club</option>}
             </select>
           </div>
           {canCreate && (
@@ -205,7 +208,7 @@ export default function ResourcesPage() {
         ) : sectionFilter === "all" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {resources.map((r) => (
-              <div key={r.id} className="card hover:shadow-md transition-shadow">
+              <div key={r.id} className="card hover:shadow-md transition-shadow flex flex-col">
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <h3 className="font-semibold text-gray-900">{r.name}</h3>
@@ -218,16 +221,18 @@ export default function ResourcesPage() {
                     {r.requiresApproval ? "Needs Approval" : "Auto-approve"}
                   </span>
                 </div>
-                {r.description && <p className="text-sm text-gray-500 mb-3">{r.description}</p>}
-                <div className="space-y-1.5 text-sm text-gray-600">
-                  {r.location && (
-                    <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-gray-400" />{r.location}</div>
-                  )}
-                  <div className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-gray-400" />{r.availableFrom} — {r.availableTo}</div>
-                  <div className="flex items-center gap-2"><Package className="h-3.5 w-3.5 text-gray-400" />Total units: <span className="font-semibold text-gray-900">{r.maxCount}</span></div>
+                <div className="flex-1">
+                  {r.description && <p className="text-sm text-gray-500 mb-3">{r.description}</p>}
+                  <div className="space-y-1.5 text-sm text-gray-600">
+                    {r.location && (
+                      <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-gray-400" />{r.location}</div>
+                    )}
+                    <div className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-gray-400" />{r.availableFrom} — {r.availableTo}</div>
+                    <div className="flex items-center gap-2"><Package className="h-3.5 w-3.5 text-gray-400" />Total units: <span className="font-semibold text-gray-900">{r.maxCount}</span></div>
+                  </div>
+                  {r.owner && <p className="mt-3 text-xs text-gray-400">Managed by {r.owner.name}</p>}
                 </div>
-                {r.owner && <p className="mt-3 text-xs text-gray-400">Managed by {r.owner.name}</p>}
-                <div className="mt-4 flex flex-col gap-3">
+                <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-2">
                   <Link href={`/calendar?resource=${r.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-700">
                     View Calendar
                   </Link>
@@ -260,14 +265,16 @@ export default function ResourcesPage() {
                   </h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {list.map((r) => (
-                      <div key={r.id} className="card hover:shadow-md transition-shadow">
+                      <div key={r.id} className="card hover:shadow-md transition-shadow flex flex-col">
                         <div className="flex items-start justify-between mb-3">
                           <h3 className="font-semibold text-gray-900">{r.name}</h3>
                           <span className={`badge ${r.requiresApproval ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"}`}>{r.requiresApproval ? "Needs Approval" : "Auto-approve"}</span>
                         </div>
-                        {r.description && <p className="text-sm text-gray-500 mb-3">{r.description}</p>}
-                        <div className="flex items-center gap-2 text-sm text-gray-600 mb-1"><Package className="h-3.5 w-3.5 text-gray-400" />Total units: <span className="font-semibold text-gray-900">{r.maxCount}</span></div>
-                        <div className="mt-4 flex flex-col gap-3">
+                        <div className="flex-1">
+                          {r.description && <p className="text-sm text-gray-500 mb-3">{r.description}</p>}
+                          <div className="flex items-center gap-2 text-sm text-gray-600 mb-1"><Package className="h-3.5 w-3.5 text-gray-400" />Total units: <span className="font-semibold text-gray-900">{r.maxCount}</span></div>
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-2">
                           <Link href={`/calendar?resource=${r.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-700">View Calendar</Link>
                           {canBookResource(
                             { role: user.role, departmentId: (user as { departmentId?: string }).departmentId ?? null, clubId: (user as { clubId?: string }).clubId ?? null },
@@ -294,14 +301,16 @@ export default function ResourcesPage() {
                   </h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {list.map((r) => (
-                      <div key={r.id} className="card hover:shadow-md transition-shadow">
+                      <div key={r.id} className="card hover:shadow-md transition-shadow flex flex-col">
                         <div className="flex items-start justify-between mb-3">
                           <h3 className="font-semibold text-gray-900">{r.name}</h3>
                           <span className={`badge ${r.requiresApproval ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"}`}>{r.requiresApproval ? "Needs Approval" : "Auto-approve"}</span>
                         </div>
-                        {r.description && <p className="text-sm text-gray-500 mb-3">{r.description}</p>}
-                        <div className="flex items-center gap-2 text-sm text-gray-600 mb-1"><Package className="h-3.5 w-3.5 text-gray-400" />Total units: <span className="font-semibold text-gray-900">{r.maxCount}</span></div>
-                        <div className="mt-4 flex flex-col gap-3">
+                        <div className="flex-1">
+                          {r.description && <p className="text-sm text-gray-500 mb-3">{r.description}</p>}
+                          <div className="flex items-center gap-2 text-sm text-gray-600 mb-1"><Package className="h-3.5 w-3.5 text-gray-400" />Total units: <span className="font-semibold text-gray-900">{r.maxCount}</span></div>
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-2">
                           <Link href={`/calendar?resource=${r.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-700">View Calendar</Link>
                           {canBookResource(
                             { role: user.role, departmentId: (user as { departmentId?: string }).departmentId ?? null, clubId: (user as { clubId?: string }).clubId ?? null },
