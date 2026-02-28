@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getCurrentUser, canManageResource } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { updateResourceSchema } from "@/lib/validations";
 import { createAuditLog } from "@/lib/audit";
+import type { SafeUser } from "@/types";
+
+function hasManagePermission(user: SafeUser, resource: { type?: string; ownerId: string | null; departmentId: string | null; clubId: string | null }): boolean {
+  if (["ADMIN", "SUPER_ADMIN"].includes(user.role)) return true;
+  // LHC can edit room availability only
+  if (user.role === "LHC") return resource.type === "ROOM";
+  if (["CLUB_ADMIN", "CLUB_MANAGER"].includes(user.role)) return resource.clubId != null && user.clubId === resource.clubId;
+  if (["DEPARTMENT_OFFICER", "LAB_TECH"].includes(user.role)) return resource.departmentId != null && user.departmentId === resource.departmentId;
+  return false;
+}
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -41,12 +51,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const { id } = await params;
-    const resource = await prisma.resource.findUnique({ where: { id } });
+    const resource = await prisma.resource.findUnique({ where: { id }, select: { id: true, type: true, ownerId: true, departmentId: true, clubId: true } });
     if (!resource) {
       return NextResponse.json({ success: false, error: "Resource not found" }, { status: 404 });
     }
 
-    if (!canManageResource(user.role, resource.ownerId, user.id)) {
+    if (!hasManagePermission(user, resource)) {
       return NextResponse.json({ success: false, error: "Insufficient permissions" }, { status: 403 });
     }
 
@@ -90,12 +100,12 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
 
     const { id } = await params;
-    const resource = await prisma.resource.findUnique({ where: { id } });
+    const resource = await prisma.resource.findUnique({ where: { id }, select: { id: true, type: true, name: true, ownerId: true, departmentId: true, clubId: true } });
     if (!resource) {
       return NextResponse.json({ success: false, error: "Resource not found" }, { status: 404 });
     }
 
-    if (!canManageResource(user.role, resource.ownerId, user.id)) {
+    if (!hasManagePermission(user, resource)) {
       return NextResponse.json({ success: false, error: "Insufficient permissions" }, { status: 403 });
     }
 

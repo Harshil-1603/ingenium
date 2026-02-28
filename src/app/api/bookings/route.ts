@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
     if (resource.type === "ROOM") {
       if (!canBookRoom(user)) {
         return NextResponse.json(
-          { success: false, error: "Only Professors, Club managers, and Department officers can book rooms. Students and LHC cannot book rooms." },
+          { success: false, error: "Only Professors and Club Heads can book rooms." },
           { status: 403 }
         );
       }

@@ -68,12 +68,12 @@ async function main() {
 
   const deptOfficer = await prisma.user.upsert({
     where: { email: "officer@campusgrid.edu" },
-    update: { departmentId: deptElectrical.id, department: "Electrical" },
+    update: { departmentId: deptElectrical.id, department: "Electrical", role: "LAB_TECH" },
     create: {
       email: "officer@campusgrid.edu",
       password,
       name: "Dr. Smith",
-      role: "DEPARTMENT_OFFICER",
+      role: "LAB_TECH",
       department: "Electrical",
       departmentId: deptElectrical.id,
     },

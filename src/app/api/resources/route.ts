@@ -22,11 +22,17 @@ export async function GET(request: NextRequest) {
 
     const where: Record<string, unknown> = { isActive: true };
     if (type) where.type = type;
+
     if (user.role === "PROFESSOR") {
-      // Professors can see rooms (type=ROOM) freely, but equipment is filtered to dept resources only
+      // Professors see dept resources only (no club-only resources), rooms are unrestricted
       if (!type || type !== "ROOM") {
         where.departmentId = { not: null };
+        where.clubId = null;
       }
+    } else if (["LAB_TECH", "DEPARTMENT_OFFICER"].includes(user.role)) {
+      // Lab Tech / Dept Officer see only their own department's resources
+      where.departmentId = user.departmentId ?? "__none__";
+      where.clubId = null;
     } else {
       if (departmentId) where.departmentId = departmentId;
       if (clubId) where.clubId = clubId;

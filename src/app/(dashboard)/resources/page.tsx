@@ -12,6 +12,7 @@ import { canBookResource } from "@/lib/rbac";
 import {
   Plus, Box, MapPin, Clock, Search, Tag, CalendarPlus,
   Building2, Users, Package, ChevronDown, ChevronRight,
+  Pencil, Trash2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -59,8 +60,17 @@ export default function ResourcesPage() {
   });
   const [form, setForm] = useState({
     name: "", type: "EQUIPMENT" as string, description: "", location: "",
-    requiresApproval: true, maxBookingHours: "24", availableFrom: "08:00", availableTo: "22:00",
+    requiresApproval: true, maxBookingHours: "24", availableFrom: "08:00", availableTo: "22:00", maxCount: "1",
   });
+  const [editModal, setEditModal] = useState(false);
+  const [editingResource, setEditingResource] = useState<Resource | null>(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "", type: "EQUIPMENT" as string, description: "", location: "",
+    requiresApproval: true, maxBookingHours: "24", availableFrom: "08:00", availableTo: "22:00", maxCount: "1",
+  });
+  const [deleteConfirm, setDeleteConfirm] = useState<Resource | null>(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   useEffect(() => { fetchResources(); }, [search, typeFilter]);
 
@@ -74,8 +84,13 @@ export default function ResourcesPage() {
       if (resData.success) {
         let filtered = resData.data.filter((r: Resource) => r.type === "EQUIPMENT" || r.type === "ASSET");
         if (typeFilter) filtered = filtered.filter((r: Resource) => r.type === typeFilter);
+        // Professor sees only dept resources (not club-only resources)
         if (user?.role === "PROFESSOR") {
           filtered = filtered.filter((r: Resource) => r.departmentId != null);
+        }
+        // Lab Tech / Dept Officer see only their own dept's resources
+        if (["LAB_TECH", "DEPARTMENT_OFFICER"].includes(user?.role ?? "")) {
+          filtered = filtered.filter((r: Resource) => r.departmentId != null && r.departmentId === (user as { departmentId?: string | null }).departmentId);
         }
         setResources(filtered);
       }
@@ -137,18 +152,76 @@ export default function ResourcesPage() {
           location: form.location || undefined,
           requiresApproval: form.requiresApproval, maxBookingHours: Number(form.maxBookingHours),
           availableFrom: form.availableFrom, availableTo: form.availableTo,
+          maxCount: Number(form.maxCount),
         }),
       });
       const data = await res.json();
       if (data.success) {
         toast("success", "Resource added!");
         setCreateModal(false);
-        setForm({ name: "", type: "EQUIPMENT", description: "", location: "", requiresApproval: true, maxBookingHours: "24", availableFrom: "08:00", availableTo: "22:00" });
+        setForm({ name: "", type: "EQUIPMENT", description: "", location: "", requiresApproval: true, maxBookingHours: "24", availableFrom: "08:00", availableTo: "22:00", maxCount: "1" });
         fetchResources();
       } else {
         toast("error", data.error);
       }
     } catch { toast("error", "Failed to add resource"); } finally { setSubmitting(false); }
+  }
+
+  function openEditModal(r: Resource) {
+    setEditingResource(r);
+    setEditForm({
+      name: r.name, type: r.type, description: r.description ?? "",
+      location: r.location ?? "", requiresApproval: r.requiresApproval,
+      maxBookingHours: String(r.maxBookingHours), availableFrom: r.availableFrom,
+      availableTo: r.availableTo, maxCount: String(r.maxCount),
+    });
+    setEditModal(true);
+  }
+
+  async function handleEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingResource) return;
+    setEditSubmitting(true);
+    try {
+      const res = await fetch(`/api/resources/${editingResource.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editForm.name, type: editForm.type,
+          description: editForm.description || undefined,
+          location: editForm.location || undefined,
+          requiresApproval: editForm.requiresApproval,
+          maxBookingHours: Number(editForm.maxBookingHours),
+          availableFrom: editForm.availableFrom, availableTo: editForm.availableTo,
+          maxCount: Number(editForm.maxCount),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast("success", "Resource updated!");
+        setEditModal(false);
+        setEditingResource(null);
+        fetchResources();
+      } else {
+        toast("error", data.error);
+      }
+    } catch { toast("error", "Failed to update resource"); } finally { setEditSubmitting(false); }
+  }
+
+  async function handleDelete() {
+    if (!deleteConfirm) return;
+    setDeleteSubmitting(true);
+    try {
+      const res = await fetch(`/api/resources/${deleteConfirm.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        toast("success", "Resource removed.");
+        setDeleteConfirm(null);
+        fetchResources();
+      } else {
+        toast("error", data.error);
+      }
+    } catch { toast("error", "Failed to delete resource"); } finally { setDeleteSubmitting(false); }
   }
 
   function openBookModal(resource: Resource) {
@@ -192,6 +265,14 @@ export default function ResourcesPage() {
 
   if (!user) return null;
   const canCreate = ["DEPARTMENT_OFFICER", "LAB_TECH", "SUPER_ADMIN", "ADMIN", "CLUB_ADMIN", "CLUB_MANAGER"].includes(user.role);
+
+  const currentUser = user;
+  function canManage(r: Resource): boolean {
+    if (["ADMIN", "SUPER_ADMIN"].includes(currentUser.role)) return true;
+    if (["CLUB_ADMIN", "CLUB_MANAGER"].includes(currentUser.role)) return r.clubId != null && r.clubId === (currentUser as { clubId?: string | null }).clubId;
+    if (["DEPARTMENT_OFFICER", "LAB_TECH"].includes(currentUser.role)) return r.departmentId != null && r.departmentId === (currentUser as { departmentId?: string | null }).departmentId;
+    return false;
+  }
 
   const sectionIcon = (type: GroupSection["icon"]) => {
     switch (type) {
@@ -310,6 +391,8 @@ export default function ResourcesPage() {
                             resource={r}
                             user={user}
                             onBook={() => openBookModal(r)}
+                            onEdit={canManage(r) ? () => openEditModal(r) : undefined}
+                            onDelete={canManage(r) ? () => setDeleteConfirm(r) : undefined}
                           />
                         ))}
                       </div>
@@ -406,6 +489,22 @@ export default function ResourcesPage() {
                   <input type="text" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="input-field" placeholder="Equipment Store, Floor 1" />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Total Units Available</label>
+                  <input type="number" min={1} max={999} required value={form.maxCount} onChange={(e) => setForm({ ...form, maxCount: e.target.value })} className="input-field" placeholder="1" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Available From</label>
+                  <input type="time" value={form.availableFrom} onChange={(e) => setForm({ ...form, availableFrom: e.target.value })} className="input-field" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Available To</label>
+                  <input type="time" value={form.availableTo} onChange={(e) => setForm({ ...form, availableTo: e.target.value })} className="input-field" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Max Booking Hours</label>
                   <input type="number" min={1} max={720} value={form.maxBookingHours} onChange={(e) => setForm({ ...form, maxBookingHours: e.target.value })} className="input-field" />
                 </div>
@@ -423,12 +522,91 @@ export default function ResourcesPage() {
             </form>
           </Modal>
         )}
+
+        {/* Edit resource modal */}
+        <Modal open={editModal} onClose={() => { setEditModal(false); setEditingResource(null); }} title="Edit Resource" maxWidth="max-w-xl">
+          <form onSubmit={handleEdit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <input type="text" required value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="input-field" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                <select value={editForm.type} onChange={(e) => setEditForm({ ...editForm, type: e.target.value })} className="input-field">
+                  <option value="EQUIPMENT">Equipment</option>
+                  <option value="ASSET">Asset</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} className="input-field" rows={2} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Storage Location</label>
+                <input type="text" value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} className="input-field" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Total Units Available</label>
+                <input type="number" min={1} max={999} required value={editForm.maxCount} onChange={(e) => setEditForm({ ...editForm, maxCount: e.target.value })} className="input-field" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Available From</label>
+                <input type="time" value={editForm.availableFrom} onChange={(e) => setEditForm({ ...editForm, availableFrom: e.target.value })} className="input-field" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Available To</label>
+                <input type="time" value={editForm.availableTo} onChange={(e) => setEditForm({ ...editForm, availableTo: e.target.value })} className="input-field" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Max Booking Hours</label>
+                <input type="number" min={1} max={720} value={editForm.maxBookingHours} onChange={(e) => setEditForm({ ...editForm, maxBookingHours: e.target.value })} className="input-field" />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={editForm.requiresApproval} onChange={(e) => setEditForm({ ...editForm, requiresApproval: e.target.checked })} className="rounded border-gray-300 text-brand-600 focus:ring-brand-600" />
+              <span className="text-sm text-gray-700">Requires approval before checkout</span>
+            </label>
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={() => { setEditModal(false); setEditingResource(null); }} className="btn-secondary">Cancel</button>
+              <button type="submit" disabled={editSubmitting} className="btn-primary">
+                {editSubmitting ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+
+        {/* Delete confirmation modal */}
+        <Modal open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} title="Remove Resource" maxWidth="max-w-sm">
+          <p className="text-sm text-gray-600 mb-1">
+            Are you sure you want to remove <span className="font-semibold text-gray-900">{deleteConfirm?.name}</span>?
+          </p>
+          <p className="text-xs text-gray-400 mb-5">This will deactivate the resource and hide it from the directory.</p>
+          <div className="flex justify-end gap-3">
+            <button type="button" onClick={() => setDeleteConfirm(null)} className="btn-secondary">Cancel</button>
+            <button type="button" disabled={deleteSubmitting} onClick={handleDelete} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors">
+              {deleteSubmitting ? "Removing..." : "Remove"}
+            </button>
+          </div>
+        </Modal>
       </div>
     </div>
   );
 }
 
-function ResourceCard({ resource: r, user, onBook }: { resource: Resource; user: { role: string; departmentId?: string | null; clubId?: string | null }; onBook: () => void }) {
+function ResourceCard({ resource: r, user, onBook, onEdit, onDelete }: {
+  resource: Resource;
+  user: { role: string; departmentId?: string | null; clubId?: string | null };
+  onBook: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
   const showBook = canBookResource(
     { role: user.role, departmentId: user.departmentId ?? null, clubId: user.clubId ?? null },
     { type: r.type, departmentId: r.departmentId ?? null, clubId: r.clubId ?? null }
@@ -444,9 +622,21 @@ function ResourceCard({ resource: r, user, onBook }: { resource: Resource; user:
             {getResourceTypeLabel(r.type)}
           </span>
         </div>
-        <span className={`shrink-0 ml-2 text-[10px] font-semibold px-2 py-1 rounded-md ${r.requiresApproval ? "bg-amber-50 text-amber-700 border border-amber-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
-          {r.requiresApproval ? "Approval Required" : "Auto-approve"}
-        </span>
+        <div className="flex items-center gap-1 ml-2 shrink-0">
+          {onEdit && (
+            <button type="button" onClick={onEdit} className="p-1.5 rounded-md text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit resource">
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {onDelete && (
+            <button type="button" onClick={onDelete} className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Remove resource">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+          <span className={`text-[10px] font-semibold px-2 py-1 rounded-md ${r.requiresApproval ? "bg-amber-50 text-amber-700 border border-amber-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
+            {r.requiresApproval ? "Approval" : "Auto"}
+          </span>
+        </div>
       </div>
 
       {r.description && <p className="text-xs text-gray-500 mb-3 line-clamp-2">{r.description}</p>}

@@ -28,37 +28,36 @@ interface NavSection {
   items: { name: string; href: string; icon: React.ElementType; roles: string[] }[];
 }
 
-const CAN_VIEW_ROOMS = ["STUDENT", "PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "DEPARTMENT_OFFICER", "LAB_TECH", "LHC", "SUPER_ADMIN", "ADMIN"];
-const CAN_BOOK_ROOMS = ["PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "DEPARTMENT_OFFICER", "LAB_TECH", "SUPER_ADMIN", "ADMIN"];
-const CAN_USE_RESOURCES = ["STUDENT", "PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "SUPER_ADMIN", "ADMIN"];
-const DEPT_ROLES = ["DEPARTMENT_OFFICER", "LAB_TECH"];
-const ALL_ROLES = ["STUDENT", "PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "DEPARTMENT_OFFICER", "LAB_TECH", "LHC", "SUPER_ADMIN", "ADMIN"];
+// Roles that can see the room section
+const CAN_VIEW_ROOMS    = ["PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "LHC", "SUPER_ADMIN", "ADMIN"];
+// Roles that can submit room bookings (LHC approves — they don't book)
+const CAN_BOOK_ROOMS    = ["PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "SUPER_ADMIN", "ADMIN"];
+// Roles that can see the resource directory (everyone except LHC)
+const CAN_VIEW_RESOURCES = ["STUDENT", "PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "DEPARTMENT_OFFICER", "LAB_TECH", "SUPER_ADMIN", "ADMIN"];
+// Roles that can make resource bookings (lab/dept roles only manage — they don't book)
+const CAN_BOOK_RESOURCES = ["STUDENT", "PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "SUPER_ADMIN", "ADMIN"];
+const DEPT_ROLES        = ["DEPARTMENT_OFFICER", "LAB_TECH"];
+const ALL_ROLES         = ["STUDENT", "PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "DEPARTMENT_OFFICER", "LAB_TECH", "LHC", "SUPER_ADMIN", "ADMIN"];
 
 const sections: NavSection[] = [
   {
     items: [
-      { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ALL_ROLES },
-      { name: "Calendar", href: "/calendar", icon: Calendar, roles: ALL_ROLES },
+      { name: "Dashboard",  href: "/dashboard", icon: LayoutDashboard, roles: ALL_ROLES },
+      { name: "Calendar",   href: "/calendar",  icon: Calendar,        roles: ALL_ROLES },
     ],
   },
   {
     label: "Rooms",
     items: [
-      { name: "Room Directory", href: "/rooms", icon: DoorOpen, roles: CAN_VIEW_ROOMS },
-      { name: "Room Bookings", href: "/room-bookings", icon: BookOpen, roles: CAN_BOOK_ROOMS },
+      { name: "Room Directory", href: "/rooms",         icon: DoorOpen,  roles: CAN_VIEW_ROOMS },
+      { name: "Room Bookings",  href: "/room-bookings", icon: BookOpen,  roles: CAN_BOOK_ROOMS },
     ],
   },
   {
     label: "Resources",
     items: [
-      { name: "Resource Directory", href: "/resources", icon: Box, roles: CAN_USE_RESOURCES },
-      { name: "Resource Bookings", href: "/resource-bookings", icon: PackageSearch, roles: CAN_USE_RESOURCES },
-    ],
-  },
-  {
-    label: "LHC",
-    items: [
-      { name: "Room Monitoring", href: "/room-monitoring", icon: DoorOpen, roles: ["LHC"] },
+      { name: "Resource Directory", href: "/resources",         icon: Box,           roles: CAN_VIEW_RESOURCES },
+      { name: "Resource Bookings",  href: "/resource-bookings", icon: PackageSearch, roles: CAN_BOOK_RESOURCES },
     ],
   },
   {
@@ -70,9 +69,9 @@ const sections: NavSection[] = [
   {
     label: "Administration",
     items: [
-      { name: "Approvals", href: "/approvals", icon: ClipboardCheck, roles: ["CLUB_ADMIN", "CLUB_MANAGER", "DEPARTMENT_OFFICER", "LAB_TECH", "LHC", "SUPER_ADMIN", "ADMIN"] },
-      { name: "Audit Logs", href: "/audit", icon: ScrollText, roles: ["SUPER_ADMIN", "ADMIN"] },
-      { name: "Manage Users", href: "/admin/users", icon: Users, roles: ["SUPER_ADMIN", "ADMIN"] },
+      { name: "Approvals",     href: "/approvals",    icon: ClipboardCheck, roles: ["CLUB_ADMIN", "CLUB_MANAGER", "DEPARTMENT_OFFICER", "LAB_TECH", "LHC", "SUPER_ADMIN", "ADMIN"] },
+      { name: "Audit Logs",    href: "/audit",        icon: ScrollText,     roles: ["SUPER_ADMIN", "ADMIN"] },
+      { name: "Manage Users",  href: "/admin/users",  icon: Users,          roles: ["SUPER_ADMIN", "ADMIN"] },
     ],
   },
 ];

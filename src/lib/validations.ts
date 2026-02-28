@@ -29,6 +29,7 @@ export const createResourceSchema = z.object({
   availableFrom: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   availableTo: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   availableDays: z.array(z.number().int().min(0).max(6)).optional(),
+  maxCount: z.number().int().min(1).max(999).optional(),
   ownerId: z.string().optional(),
   departmentId: z.string().optional(),
   clubId: z.string().optional(),

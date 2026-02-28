@@ -7,9 +7,10 @@ import { Modal } from "@/components/ui/Modal";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { toast } from "@/components/ui/Toaster";
-import { Plus, DoorOpen, MapPin, Users as UsersIcon, Clock, Search, CalendarPlus } from "lucide-react";
+import { Plus, DoorOpen, MapPin, Users as UsersIcon, Clock, Search, CalendarPlus, Pencil } from "lucide-react";
 import Link from "next/link";
-import { canBookRoom } from "@/lib/rbac";
+import { useRouter } from "next/navigation";
+import { canBookRoom, canViewRooms, canEditRoom } from "@/lib/rbac";
 
 interface Room {
   id: string;
@@ -28,6 +29,7 @@ interface Room {
 
 export default function RoomsPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -36,21 +38,28 @@ export default function RoomsPage() {
   const [bookingModal, setBookingModal] = useState(false);
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [bookingForm, setBookingForm] = useState({
-    title: "",
-    description: "",
-    resourceId: "",
-    resourceName: "",
-    startDate: "",
-    startTime: "09:00",
-    endDate: "",
-    endTime: "10:00",
+    title: "", description: "", resourceId: "", resourceName: "",
+    startDate: "", startTime: "09:00", endDate: "", endTime: "10:00",
   });
   const [form, setForm] = useState({
     name: "", description: "", location: "", capacity: "",
     requiresApproval: true, maxBookingHours: "4", availableFrom: "08:00", availableTo: "22:00",
   });
+  const [editModal, setEditModal] = useState(false);
+  const [editingRoom, setEditingRoom] = useState<Room | null>(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editForm, setEditForm] = useState({
+    description: "", location: "", capacity: "",
+    requiresApproval: true, maxBookingHours: "4", availableFrom: "08:00", availableTo: "22:00",
+  });
 
   useEffect(() => { fetchRooms(); }, [search]);
+
+  useEffect(() => {
+    if (user && !canViewRooms({ role: user.role })) {
+      router.replace("/dashboard");
+    }
+  }, [user, router]);
 
   async function fetchRooms() {
     setLoading(true);
@@ -136,24 +145,61 @@ export default function RoomsPage() {
     }
   }
 
+  function openEditModal(room: Room) {
+    setEditingRoom(room);
+    setEditForm({
+      description: room.description ?? "",
+      location: room.location ?? "",
+      capacity: room.capacity ? String(room.capacity) : "",
+      requiresApproval: room.requiresApproval,
+      maxBookingHours: String(room.maxBookingHours),
+      availableFrom: room.availableFrom,
+      availableTo: room.availableTo,
+    });
+    setEditModal(true);
+  }
+
+  async function handleEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingRoom) return;
+    setEditSubmitting(true);
+    try {
+      const res = await fetch(`/api/resources/${editingRoom.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: editForm.description || undefined,
+          location: editForm.location || undefined,
+          capacity: editForm.capacity ? Number(editForm.capacity) : undefined,
+          requiresApproval: editForm.requiresApproval,
+          maxBookingHours: Number(editForm.maxBookingHours),
+          availableFrom: editForm.availableFrom,
+          availableTo: editForm.availableTo,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast("success", "Room updated!");
+        setEditModal(false);
+        setEditingRoom(null);
+        fetchRooms();
+      } else {
+        toast("error", data.error);
+      }
+    } catch { toast("error", "Failed to update room"); } finally { setEditSubmitting(false); }
+  }
+
   if (!user) return null;
-  const canCreate = ["DEPARTMENT_OFFICER", "LAB_TECH", "SUPER_ADMIN", "ADMIN"].includes(user.role);
+  if (!canViewRooms({ role: user.role })) return null;
+
+  const canCreate = ["SUPER_ADMIN", "ADMIN"].includes(user.role);
   const canBook = canBookRoom({ role: user.role });
-  const isViewOnly = user.role === "STUDENT";
+  const canEdit = canEditRoom({ role: user.role });
 
   return (
     <div>
       <Header user={user} title="Room Directory" />
       <div className="p-6">
-        {isViewOnly && (
-          <div className="mb-5 flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-            <span className="mt-0.5 text-base">ℹ️</span>
-            <div>
-              <strong>View-only mode.</strong> Students can see room availability and live schedules but cannot book rooms.
-              To reserve equipment or assets, visit <a href="/resource-bookings" className="underline font-medium">Resource Bookings</a>.
-            </div>
-          </div>
-        )}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -179,25 +225,32 @@ export default function RoomsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {rooms.map((r) => (
-              <div key={r.id} className="card hover:shadow-md transition-shadow">
+              <div key={r.id} className="card hover:shadow-md transition-shadow flex flex-col">
                 <div className="flex items-start justify-between mb-3">
                   <h3 className="font-semibold text-gray-900">{r.name}</h3>
-                  <span className={`badge ${r.requiresApproval ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"}`}>
-                    {r.requiresApproval ? "Needs Approval" : "Auto-approve"}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    {canEdit && (
+                      <button type="button" onClick={() => openEditModal(r)} className="p-1.5 rounded-md text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-colors" title="Edit room availability">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <span className={`badge ${r.requiresApproval ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"}`}>
+                      {r.requiresApproval ? "Needs Approval" : "Auto-approve"}
+                    </span>
+                  </div>
                 </div>
                 {r.description && <p className="text-sm text-gray-500 mb-3">{r.description}</p>}
-                <div className="space-y-1.5 text-sm text-gray-600">
+                <div className="flex-1 space-y-1.5 text-sm text-gray-600">
                   {r.location && (
                     <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-gray-400" />{r.location}</div>
                   )}
                   {r.capacity && (
                     <div className="flex items-center gap-2"><UsersIcon className="h-3.5 w-3.5 text-gray-400" />Capacity: {r.capacity}</div>
                   )}
-                  <div className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-gray-400" />{r.availableFrom} — {r.availableTo}</div>
+                  <div className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-gray-400" />{r.availableFrom} — {r.availableTo} · Max {r.maxBookingHours}h</div>
                 </div>
                 {r.owner && <p className="mt-3 text-xs text-gray-400">Managed by {r.owner.name}</p>}
-                <div className="mt-4 flex flex-col gap-3">
+                <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-2">
                   <Link href={`/calendar?resource=${r.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-700">
                     View Calendar
                   </Link>
@@ -289,6 +342,48 @@ export default function RoomsPage() {
               <button type="submit" disabled={bookingSubmitting} className="btn-primary">
                 {bookingSubmitting ? "Submitting..." : "Book Now"}
               </button>
+            </div>
+          </form>
+        </Modal>
+
+        {/* Edit room availability modal (LHC + Admin) */}
+        <Modal open={editModal} onClose={() => { setEditModal(false); setEditingRoom(null); }} title={`Edit: ${editingRoom?.name ?? "Room"}`} maxWidth="max-w-lg">
+          <form onSubmit={handleEdit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} className="input-field" rows={2} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input type="text" value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} className="input-field" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Capacity</label>
+                <input type="number" min={1} value={editForm.capacity} onChange={(e) => setEditForm({ ...editForm, capacity: e.target.value })} className="input-field" placeholder="100" />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Available From</label>
+                <input type="time" value={editForm.availableFrom} onChange={(e) => setEditForm({ ...editForm, availableFrom: e.target.value })} className="input-field" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Available To</label>
+                <input type="time" value={editForm.availableTo} onChange={(e) => setEditForm({ ...editForm, availableTo: e.target.value })} className="input-field" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Max Booking Hours</label>
+                <input type="number" min={1} max={12} value={editForm.maxBookingHours} onChange={(e) => setEditForm({ ...editForm, maxBookingHours: e.target.value })} className="input-field" />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={editForm.requiresApproval} onChange={(e) => setEditForm({ ...editForm, requiresApproval: e.target.checked })} className="rounded border-gray-300 text-brand-600 focus:ring-brand-600" />
+              <span className="text-sm text-gray-700">Requires approval before booking</span>
+            </label>
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={() => { setEditModal(false); setEditingRoom(null); }} className="btn-secondary">Cancel</button>
+              <button type="submit" disabled={editSubmitting} className="btn-primary">{editSubmitting ? "Saving..." : "Save Changes"}</button>
             </div>
           </form>
         </Modal>
