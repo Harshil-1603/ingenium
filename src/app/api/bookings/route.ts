@@ -5,7 +5,6 @@ import { createBookingSchema } from "@/lib/validations";
 import { createAuditLog } from "@/lib/audit";
 import { createNotification } from "@/lib/notifications";
 import { sendEmail, bookingConfirmationEmail } from "@/lib/email";
-import { getNextWaitlistPosition } from "@/lib/waitlist";
 import { canBookRoom, canBookResource } from "@/lib/rbac";
 import { formatDateTime, paginate } from "@/lib/utils";
 
@@ -177,8 +176,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let bookingStatus: "PENDING" | "APPROVED" | "WAITLISTED" = resource.requiresApproval ? "PENDING" : "APPROVED";
-    let waitlistEntry = null;
+    const bookingStatus: "PENDING" | "APPROVED" = resource.requiresApproval ? "PENDING" : "APPROVED";
 
     const booking = await prisma.booking.create({
       data: {
@@ -196,21 +194,8 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (bookingStatus === "WAITLISTED") {
-      const position = await getNextWaitlistPosition(resourceId, start, end);
-      waitlistEntry = await prisma.waitlistEntry.create({
-        data: {
-          position,
-          bookingId: booking.id,
-          resourceId,
-          userId: user.id,
-        },
-      });
-    }
-
-    const action = bookingStatus === "WAITLISTED" ? "BOOKING_WAITLISTED" : "BOOKING_CREATED";
     await createAuditLog({
-      action,
+      action: "BOOKING_CREATED",
       entityType: "Booking",
       entityId: booking.id,
       userId: user.id,
@@ -219,11 +204,9 @@ export async function POST(request: NextRequest) {
 
     await createNotification({
       userId: user.id,
-      type: action,
-      title: bookingStatus === "WAITLISTED" ? "Added to Waitlist" : bookingStatus === "APPROVED" ? "Booking Confirmed" : "Booking Submitted",
-      message: bookingStatus === "WAITLISTED"
-        ? `Your booking "${title}" has been waitlisted at position ${waitlistEntry?.position}.`
-        : bookingStatus === "APPROVED"
+      type: "BOOKING_CREATED",
+      title: bookingStatus === "APPROVED" ? "Booking Confirmed" : "Booking Submitted",
+      message: bookingStatus === "APPROVED"
         ? `Your booking "${title}" for "${resource.name}" has been automatically confirmed.`
         : `Your booking "${title}" is pending approval.`,
       metadata: { bookingId: booking.id },
@@ -246,7 +229,7 @@ export async function POST(request: NextRequest) {
     sendEmail({ to: user.email, ...emailData }).catch(() => {});
 
     return NextResponse.json(
-      { success: true, data: { ...booking, waitlistEntry } },
+      { success: true, data: booking },
       { status: 201 }
     );
   } catch (error) {
