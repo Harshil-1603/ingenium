@@ -55,6 +55,12 @@ const sections: NavSection[] = [
     ],
   },
   {
+    label: "LHC",
+    items: [
+      { name: "Room Monitoring", href: "/room-monitoring", icon: DoorOpen, roles: ["LHC"] },
+    ],
+  },
+  {
     label: "Department",
     items: [
       { name: "Resource Monitoring", href: "/resource-monitoring", icon: BarChart3, roles: DEPT_ROLES },

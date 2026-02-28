@@ -6,7 +6,7 @@ import { Header } from "@/components/layout/Header";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDateTime } from "@/lib/utils";
-import { BarChart3, CheckCircle, Clock, AlertCircle, Box, MapPin, User, Package } from "lucide-react";
+import { DoorOpen, CheckCircle, Clock, AlertCircle, CalendarCheck, Users, MapPin, User } from "lucide-react";
 
 interface BookingInfo {
   id: string;
@@ -14,20 +14,20 @@ interface BookingInfo {
   status: string;
   startTime: string;
   endTime: string;
-  user: { id: string; name: string; email: string };
+  user: { id: string; name: string; email: string; role: string };
 }
 
-interface ResourceSummary {
+interface RoomSummary {
   id: string;
   name: string;
-  type: string;
   description: string | null;
   location: string | null;
+  capacity: number | null;
   owner: { id: string; name: string } | null;
-  maxCount: number;
-  currentlyInUse: number;
-  availableNow: number;
-  status: "ALL_IN_USE" | "PARTIAL" | "AVAILABLE";
+  status: "OCCUPIED" | "ALLOCATED" | "FREE";
+  nextBooking: BookingInfo | null;
+  currentUser: { id: string; name: string; email: string; role: string } | null;
+  currentBooking: BookingInfo | null;
   activeBookings: BookingInfo[];
   pendingBookings: BookingInfo[];
   upcomingBookings: BookingInfo[];
@@ -36,12 +36,11 @@ interface ResourceSummary {
 }
 
 interface MonitoringData {
-  department: { id: string; slug: string; name: string } | null;
-  stats: { totalResources: number; totalUnits: number; unitsInUse: number; unitsAvailable: number; totalPending: number };
-  resources: ResourceSummary[];
+  stats: { totalRooms: number; occupied: number; allocated: number; free: number; totalPending: number };
+  rooms: RoomSummary[];
 }
 
-export default function ResourceMonitoringPage() {
+export default function RoomMonitoringPage() {
   const { user } = useAuth();
   const [data, setData] = useState<MonitoringData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,7 +54,7 @@ export default function ResourceMonitoringPage() {
 
   async function fetchData() {
     try {
-      const res = await fetch("/api/resource-monitoring", { credentials: "include" });
+      const res = await fetch("/api/room-monitoring", { credentials: "include" });
       const json = await res.json();
       if (json.success) setData(json.data);
     } catch {} finally { setLoading(false); }
@@ -65,47 +64,45 @@ export default function ResourceMonitoringPage() {
 
   return (
     <div>
-      <Header user={user} title="Resource Monitoring" />
+      <Header user={user} title="Room Monitoring" />
       <div className="p-6">
-        {loading ? <LoadingSpinner /> : !data || data.resources.length === 0 ? (
+        {loading ? <LoadingSpinner /> : !data || data.rooms.length === 0 ? (
           <EmptyState
-            title="No resources to monitor"
-            description="Your department has no resources assigned yet."
-            icon={<BarChart3 className="h-8 w-8 text-gray-400" />}
+            title="No rooms to monitor"
+            description="There are no rooms in the system yet."
+            icon={<DoorOpen className="h-8 w-8 text-gray-400" />}
           />
         ) : (
           <>
-            {data.department && (
-              <div className="mb-6">
-                <h2 className="text-xl font-bold text-gray-900">{data.department.name} Department</h2>
-                <p className="text-sm text-gray-500 mt-1">Live resource allocation overview</p>
-              </div>
-            )}
+            <div className="mb-6">
+              <h2 className="text-xl font-bold text-gray-900">LHC Room Overview</h2>
+              <p className="text-sm text-gray-500 mt-1">Live room allocation and occupancy status</p>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
               <StatCard
-                icon={Box}
-                label="Resource Types"
-                value={data.stats.totalResources}
+                icon={DoorOpen}
+                label="Total Rooms"
+                value={data.stats.totalRooms}
                 color="bg-blue-50 text-blue-600"
               />
               <StatCard
-                icon={Package}
-                label="Total Units"
-                value={data.stats.totalUnits}
-                color="bg-slate-50 text-slate-600"
-              />
-              <StatCard
                 icon={CheckCircle}
-                label="Units Available"
-                value={data.stats.unitsAvailable}
+                label="Free Now"
+                value={data.stats.free}
                 color="bg-green-50 text-green-600"
               />
               <StatCard
                 icon={AlertCircle}
-                label="Units In Use"
-                value={data.stats.unitsInUse}
+                label="Occupied"
+                value={data.stats.occupied}
                 color="bg-amber-50 text-amber-600"
+              />
+              <StatCard
+                icon={CalendarCheck}
+                label="Allocated"
+                value={data.stats.allocated}
+                color="bg-indigo-50 text-indigo-600"
               />
               <StatCard
                 icon={Clock}
@@ -116,44 +113,56 @@ export default function ResourceMonitoringPage() {
             </div>
 
             <div className="space-y-3">
-              {data.resources.map((r) => {
-                const isExpanded = expanded === r.id;
+              {data.rooms.map((room) => {
+                const isExpanded = expanded === room.id;
                 return (
-                  <div key={r.id} className="card">
+                  <div key={room.id} className="card">
                     <button
                       type="button"
-                      onClick={() => setExpanded(isExpanded ? null : r.id)}
+                      onClick={() => setExpanded(isExpanded ? null : room.id)}
                       className="w-full text-left"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className={`h-3 w-3 rounded-full ${r.status === "ALL_IN_USE" ? "bg-red-400" : r.status === "PARTIAL" ? "bg-amber-400" : "bg-green-400"}`} />
+                          <div className={`h-3 w-3 rounded-full ${room.status === "OCCUPIED" ? "bg-amber-400" : room.status === "ALLOCATED" ? "bg-indigo-400" : "bg-green-400"}`} />
                           <div>
-                            <h3 className="font-semibold text-gray-900">{r.name}</h3>
+                            <h3 className="font-semibold text-gray-900">{room.name}</h3>
                             <div className="flex items-center gap-3 mt-0.5">
-                              {r.location && (
+                              {room.location && (
                                 <p className="text-xs text-gray-500 flex items-center gap-1">
-                                  <MapPin className="h-3 w-3" /> {r.location}
+                                  <MapPin className="h-3 w-3" /> {room.location}
                                 </p>
                               )}
-                              <p className="text-xs text-gray-500">
-                                {r.availableNow}/{r.maxCount} available
-                              </p>
+                              {room.capacity && (
+                                <p className="text-xs text-gray-500 flex items-center gap-1">
+                                  <Users className="h-3 w-3" /> {room.capacity} seats
+                                </p>
+                              )}
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className={`badge ${r.status === "ALL_IN_USE" ? "bg-red-100 text-red-700" : r.status === "PARTIAL" ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"}`}>
-                            {r.status === "ALL_IN_USE" ? `All ${r.maxCount} In Use` : r.status === "PARTIAL" ? `${r.currentlyInUse}/${r.maxCount} In Use` : "All Available"}
+                          <span className={`badge ${room.status === "OCCUPIED" ? "bg-amber-100 text-amber-700" : room.status === "ALLOCATED" ? "bg-indigo-100 text-indigo-700" : "bg-green-100 text-green-700"}`}>
+                            {room.status === "OCCUPIED" ? "Occupied" : room.status === "ALLOCATED" ? "Allocated" : "Free"}
                           </span>
-                          {r.totalPending > 0 && (
-                            <span className="badge bg-purple-100 text-purple-700">
-                              {r.totalPending} pending
+                          {room.currentUser && (
+                            <span className="text-xs text-gray-500">
+                              {room.currentUser.name}
                             </span>
                           )}
-                          {r.totalActiveAndUpcoming > 0 && (
+                          {room.status === "ALLOCATED" && room.nextBooking && (
+                            <span className="text-xs text-gray-500">
+                              Next: {room.nextBooking.user.name}
+                            </span>
+                          )}
+                          {room.totalPending > 0 && (
+                            <span className="badge bg-purple-100 text-purple-700">
+                              {room.totalPending} pending
+                            </span>
+                          )}
+                          {room.totalActiveAndUpcoming > 0 && (
                             <span className="badge bg-blue-100 text-blue-700">
-                              {r.totalActiveAndUpcoming} booked
+                              {room.totalActiveAndUpcoming} booked
                             </span>
                           )}
                           <svg className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
@@ -163,35 +172,35 @@ export default function ResourceMonitoringPage() {
 
                     {isExpanded && (
                       <div className="mt-4 border-t border-gray-100 pt-4 space-y-4">
-                        {r.activeBookings.length > 0 && (
+                        {room.activeBookings.length > 0 && (
                           <div>
-                            <h4 className="text-sm font-semibold text-amber-700 mb-2">Currently In Use</h4>
-                            {r.activeBookings.map((b) => (
+                            <h4 className="text-sm font-semibold text-amber-700 mb-2">Currently Occupied</h4>
+                            {room.activeBookings.map((b) => (
                               <BookingRow key={b.id} booking={b} />
                             ))}
                           </div>
                         )}
 
-                        {r.pendingBookings.length > 0 && (
+                        {room.pendingBookings.length > 0 && (
                           <div>
-                            <h4 className="text-sm font-semibold text-purple-700 mb-2">Pending Requests</h4>
-                            {r.pendingBookings.map((b) => (
+                            <h4 className="text-sm font-semibold text-purple-700 mb-2">Pending Approval</h4>
+                            {room.pendingBookings.map((b) => (
                               <BookingRow key={b.id} booking={b} />
                             ))}
                           </div>
                         )}
 
-                        {r.upcomingBookings.length > 0 && (
+                        {room.upcomingBookings.length > 0 && (
                           <div>
-                            <h4 className="text-sm font-semibold text-blue-700 mb-2">Upcoming</h4>
-                            {r.upcomingBookings.map((b) => (
+                            <h4 className="text-sm font-semibold text-blue-700 mb-2">Upcoming Bookings</h4>
+                            {room.upcomingBookings.map((b) => (
                               <BookingRow key={b.id} booking={b} />
                             ))}
                           </div>
                         )}
 
-                        {r.activeBookings.length === 0 && r.pendingBookings.length === 0 && r.upcomingBookings.length === 0 && (
-                          <p className="text-sm text-gray-500">No current or upcoming bookings.</p>
+                        {room.activeBookings.length === 0 && room.pendingBookings.length === 0 && room.upcomingBookings.length === 0 && (
+                          <p className="text-sm text-gray-500">No current or upcoming bookings for this room.</p>
                         )}
                       </div>
                     )}
@@ -228,7 +237,7 @@ function BookingRow({ booking }: { booking: BookingInfo }) {
       <div>
         <p className="font-medium text-gray-900">{booking.title}</p>
         <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-          <User className="h-3 w-3" /> {booking.user.name} ({booking.user.email})
+          <User className="h-3 w-3" /> {booking.user.name} ({booking.user.email}) &middot; {booking.user.role}
         </p>
       </div>
       <div className="text-right text-xs text-gray-500">

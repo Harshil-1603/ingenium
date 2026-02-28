@@ -9,28 +9,15 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!["DEPARTMENT_OFFICER", "LAB_TECH", "SUPER_ADMIN", "ADMIN"].includes(user.role)) {
+    if (!["LHC", "SUPER_ADMIN", "ADMIN"].includes(user.role)) {
       return NextResponse.json({ success: false, error: "Insufficient permissions" }, { status: 403 });
-    }
-
-    const where: Record<string, unknown> = {
-      isActive: true,
-      type: { in: ["EQUIPMENT", "ASSET"] },
-    };
-
-    if (["DEPARTMENT_OFFICER", "LAB_TECH"].includes(user.role)) {
-      if (!user.departmentId) {
-        return NextResponse.json({ success: true, data: { department: null, resources: [] } });
-      }
-      where.departmentId = user.departmentId;
     }
 
     const now = new Date();
 
-    const resources = await prisma.resource.findMany({
-      where,
+    const rooms = await prisma.resource.findMany({
+      where: { isActive: true, type: "ROOM" },
       include: {
-        department: { select: { id: true, slug: true, name: true } },
         owner: { select: { id: true, name: true } },
         bookings: {
           where: {
@@ -43,7 +30,7 @@ export async function GET() {
             status: true,
             startTime: true,
             endTime: true,
-            user: { select: { id: true, name: true, email: true } },
+            user: { select: { id: true, name: true, email: true, role: true } },
           },
           orderBy: { startTime: "asc" },
         },
@@ -51,9 +38,7 @@ export async function GET() {
       orderBy: { name: "asc" },
     });
 
-    const dept = resources[0]?.department ?? null;
-
-    const summary = resources.map((r) => {
+    const summary = rooms.map((r) => {
       const activeBookings = r.bookings.filter(
         (b) => b.status === "APPROVED" && new Date(b.startTime) <= now && new Date(b.endTime) >= now
       );
@@ -62,21 +47,26 @@ export async function GET() {
         (b) => b.status === "APPROVED" && new Date(b.startTime) > now
       );
 
-      const maxCount = r.maxCount ?? 1;
-      const currentlyInUse = activeBookings.length;
-      const availableNow = Math.max(0, maxCount - currentlyInUse);
+      let status: "OCCUPIED" | "ALLOCATED" | "FREE";
+      if (activeBookings.length > 0) {
+        status = "OCCUPIED";
+      } else if (upcomingBookings.length > 0) {
+        status = "ALLOCATED";
+      } else {
+        status = "FREE";
+      }
 
       return {
         id: r.id,
         name: r.name,
-        type: r.type,
         description: r.description,
         location: r.location,
+        capacity: r.capacity,
         owner: r.owner,
-        maxCount,
-        currentlyInUse,
-        availableNow,
-        status: currentlyInUse >= maxCount ? "ALL_IN_USE" as const : currentlyInUse > 0 ? "PARTIAL" as const : "AVAILABLE" as const,
+        status,
+        currentUser: activeBookings[0]?.user ?? null,
+        currentBooking: activeBookings[0] ?? null,
+        nextBooking: upcomingBookings[0] ?? null,
         activeBookings,
         pendingBookings,
         upcomingBookings,
@@ -85,22 +75,21 @@ export async function GET() {
       };
     });
 
-    const totalResources = summary.length;
-    const totalUnits = summary.reduce((sum, r) => sum + r.maxCount, 0);
-    const unitsInUse = summary.reduce((sum, r) => sum + r.currentlyInUse, 0);
-    const unitsAvailable = totalUnits - unitsInUse;
+    const totalRooms = summary.length;
+    const occupied = summary.filter((r) => r.status === "OCCUPIED").length;
+    const allocated = summary.filter((r) => r.status === "ALLOCATED").length;
+    const free = summary.filter((r) => r.status === "FREE").length;
     const totalPending = summary.reduce((sum, r) => sum + r.totalPending, 0);
 
     return NextResponse.json({
       success: true,
       data: {
-        department: dept,
-        stats: { totalResources, totalUnits, unitsInUse, unitsAvailable, totalPending },
-        resources: summary,
+        stats: { totalRooms, occupied, allocated, free, totalPending },
+        rooms: summary,
       },
     });
   } catch (error) {
-    console.error("[ResourceMonitoring]", error);
+    console.error("[RoomMonitoring]", error);
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

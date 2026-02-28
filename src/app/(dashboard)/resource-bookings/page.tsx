@@ -30,6 +30,7 @@ interface Resource {
   name: string;
   type: string;
   location: string;
+  maxCount: number;
   departmentId?: string | null;
   clubId?: string | null;
   department?: { id: string; slug: string; name: string } | null;
@@ -182,13 +183,13 @@ export default function ResourceBookingsPage() {
               <select required value={form.resourceId} onChange={(e) => setForm({ ...form, resourceId: e.target.value })} className="input-field">
                 <option value="">Select equipment or asset</option>
                 {resources.filter((r) => r.departmentId).map((r) => (
-                  <option key={r.id} value={r.id}>{r.name} ({r.department?.name ?? "Dept"}){r.location ? ` — ${r.location}` : ""}</option>
+                  <option key={r.id} value={r.id}>{r.name} ({r.department?.name ?? "Dept"}) [{r.maxCount} units]{r.location ? ` — ${r.location}` : ""}</option>
                 ))}
                 {resources.filter((r) => r.clubId).map((r) => (
-                  <option key={r.id} value={r.id}>{r.name} ({r.club?.name ?? "Club"}){r.location ? ` — ${r.location}` : ""}</option>
+                  <option key={r.id} value={r.id}>{r.name} ({r.club?.name ?? "Club"}) [{r.maxCount} units]{r.location ? ` — ${r.location}` : ""}</option>
                 ))}
                 {resources.filter((r) => !r.departmentId && !r.clubId).map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}{r.location ? ` — ${r.location}` : ""}</option>
+                  <option key={r.id} value={r.id}>{r.name} [{r.maxCount} units]{r.location ? ` — ${r.location}` : ""}</option>
                 ))}
               </select>
             </div>

@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const conflicting = await prisma.booking.findFirst({
+    const overlappingCount = await prisma.booking.count({
       where: {
         resourceId,
         status: { in: ["PENDING", "APPROVED"] },
@@ -174,12 +174,17 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    const maxCount = resource.maxCount ?? 1;
+
+    if (overlappingCount >= maxCount) {
+      return NextResponse.json(
+        { success: false, error: `Resource not available for this time slot. All ${maxCount} unit(s) are already booked.` },
+        { status: 409 }
+      );
+    }
+
     let bookingStatus: "PENDING" | "APPROVED" | "WAITLISTED" = resource.requiresApproval ? "PENDING" : "APPROVED";
     let waitlistEntry = null;
-
-    if (conflicting) {
-      bookingStatus = "WAITLISTED";
-    }
 
     const booking = await prisma.booking.create({
       data: {

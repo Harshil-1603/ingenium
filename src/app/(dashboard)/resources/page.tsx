@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { toast } from "@/components/ui/Toaster";
 import { getResourceTypeLabel } from "@/lib/utils";
 import { canBookResource } from "@/lib/rbac";
-import { Plus, Box, MapPin, Clock, Search, Tag, CalendarPlus, Building2, Users } from "lucide-react";
+import { Plus, Box, MapPin, Clock, Search, Tag, CalendarPlus, Building2, Users, Package } from "lucide-react";
 import Link from "next/link";
 
 interface Resource {
@@ -23,6 +23,7 @@ interface Resource {
   maxBookingHours: number;
   availableFrom: string;
   availableTo: string;
+  maxCount: number;
   departmentId: string | null;
   clubId: string | null;
   department?: { id: string; slug: string; name: string } | null;
@@ -222,6 +223,7 @@ export default function ResourcesPage() {
                     <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-gray-400" />{r.location}</div>
                   )}
                   <div className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-gray-400" />{r.availableFrom} — {r.availableTo} · Max {r.maxBookingHours}h</div>
+                  <div className="flex items-center gap-2"><Package className="h-3.5 w-3.5 text-gray-400" />Total units: <span className="font-semibold text-gray-900">{r.maxCount}</span></div>
                 </div>
                 {r.owner && <p className="mt-3 text-xs text-gray-400">Managed by {r.owner.name}</p>}
                 <div className="mt-4 flex flex-col gap-3">
@@ -263,6 +265,7 @@ export default function ResourcesPage() {
                           <span className={`badge ${r.requiresApproval ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"}`}>{r.requiresApproval ? "Needs Approval" : "Auto-approve"}</span>
                         </div>
                         {r.description && <p className="text-sm text-gray-500 mb-3">{r.description}</p>}
+                        <div className="flex items-center gap-2 text-sm text-gray-600 mb-1"><Package className="h-3.5 w-3.5 text-gray-400" />Total units: <span className="font-semibold text-gray-900">{r.maxCount}</span></div>
                         <div className="mt-4 flex flex-col gap-3">
                           <Link href={`/calendar?resource=${r.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-700">View Calendar</Link>
                           {canBookResource(
@@ -296,6 +299,7 @@ export default function ResourcesPage() {
                           <span className={`badge ${r.requiresApproval ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"}`}>{r.requiresApproval ? "Needs Approval" : "Auto-approve"}</span>
                         </div>
                         {r.description && <p className="text-sm text-gray-500 mb-3">{r.description}</p>}
+                        <div className="flex items-center gap-2 text-sm text-gray-600 mb-1"><Package className="h-3.5 w-3.5 text-gray-400" />Total units: <span className="font-semibold text-gray-900">{r.maxCount}</span></div>
                         <div className="mt-4 flex flex-col gap-3">
                           <Link href={`/calendar?resource=${r.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-700">View Calendar</Link>
                           {canBookResource(

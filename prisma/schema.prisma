@@ -113,6 +113,7 @@ model Resource {
   availableFrom   String       @default("08:00")
   availableTo     String       @default("22:00")
   availableDays   Int[]        @default([1, 2, 3, 4, 5])
+  maxCount        Int          @default(1)
   ownerId         String?
   departmentId    String?
   clubId          String?

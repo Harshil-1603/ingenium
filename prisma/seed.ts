@@ -150,19 +150,19 @@ async function main() {
   }
 
   const clubResources = [
-    { id: "seed-camera", name: "Camera", type: "EQUIPMENT" as const, description: "DSLR351", location: "Equipment Room, BERMS", ownerId: clubShutterbugsManager.id, clubId: clubShutterbugs.id, maxBookingHours: 24 },
-    { id: "seed-tripod", name: "Tripod", type: "EQUIPMENT" as const, description: "T335", location: "Equipment Room, BERMS", ownerId: clubShutterbugsManager.id, clubId: clubShutterbugs.id, maxBookingHours: 24 },
-    { id: "seed-sound-system", name: "Sound System", type: "EQUIPMENT" as const, description: "Sony Bass 2 Speaker System", location: "Equipment Room, BERMS", ownerId: clubShutterbugsManager.id, clubId: clubShutterbugs.id, maxBookingHours: 24 },
-    { id: "seed-3d-printer", name: "3D Printer", type: "EQUIPMENT" as const, description: "Latest Printer", location: "Robotics Lab", ownerId: clubAdmin.id, clubId: clubRobotics.id, maxBookingHours: 24 },
-    { id: "seed-raspberry-pi", name: "Raspberry Pi", type: "EQUIPMENT" as const, description: "Latest Circuit", location: "Robotics Lab", ownerId: clubAdmin.id, clubId: clubRobotics.id, maxBookingHours: 24 },
-    { id: "seed-soldering-kit", name: "Soldering Kit", type: "EQUIPMENT" as const, description: "Portable soldering station", location: "Robotics Lab", ownerId: clubAdmin.id, clubId: clubRobotics.id, maxBookingHours: 12 },
-    { id: "seed-drone", name: "Drone", type: "EQUIPMENT" as const, description: "Quadcopter for filming", location: "Shutterbugs Store", ownerId: clubShutterbugsManager.id, clubId: clubShutterbugs.id, maxBookingHours: 24 },
+    { id: "seed-camera", name: "Camera", type: "EQUIPMENT" as const, description: "DSLR351", location: "Equipment Room, BERMS", ownerId: clubShutterbugsManager.id, clubId: clubShutterbugs.id, maxBookingHours: 24, maxCount: 2 },
+    { id: "seed-tripod", name: "Tripod", type: "EQUIPMENT" as const, description: "T335", location: "Equipment Room, BERMS", ownerId: clubShutterbugsManager.id, clubId: clubShutterbugs.id, maxBookingHours: 24, maxCount: 8 },
+    { id: "seed-sound-system", name: "Sound System", type: "EQUIPMENT" as const, description: "Sony Bass 2 Speaker System", location: "Equipment Room, BERMS", ownerId: clubShutterbugsManager.id, clubId: clubShutterbugs.id, maxBookingHours: 24, maxCount: 4 },
+    { id: "seed-3d-printer", name: "3D Printer", type: "EQUIPMENT" as const, description: "Latest Printer", location: "Robotics Lab", ownerId: clubAdmin.id, clubId: clubRobotics.id, maxBookingHours: 24, maxCount: 2 },
+    { id: "seed-raspberry-pi", name: "Raspberry Pi", type: "EQUIPMENT" as const, description: "Latest Circuit", location: "Robotics Lab", ownerId: clubAdmin.id, clubId: clubRobotics.id, maxBookingHours: 24, maxCount: 4 },
+    { id: "seed-soldering-kit", name: "Soldering Kit", type: "EQUIPMENT" as const, description: "Portable soldering station", location: "Robotics Lab", ownerId: clubAdmin.id, clubId: clubRobotics.id, maxBookingHours: 12, maxCount: 5 },
+    { id: "seed-drone", name: "Drone", type: "EQUIPMENT" as const, description: "Quadcopter for filming", location: "Shutterbugs Store", ownerId: clubShutterbugsManager.id, clubId: clubShutterbugs.id, maxBookingHours: 24, maxCount: 2 },
   ];
 
   for (const item of clubResources) {
     await prisma.resource.upsert({
       where: { id: item.id },
-      update: { clubId: item.clubId, ownerId: item.ownerId },
+      update: { clubId: item.clubId, ownerId: item.ownerId, maxCount: item.maxCount },
       create: {
         id: item.id,
         name: item.name,
@@ -174,6 +174,7 @@ async function main() {
         clubId: item.clubId,
         requiresApproval: true,
         maxBookingHours: item.maxBookingHours,
+        maxCount: item.maxCount,
         availableFrom: "08:00",
         availableTo: "22:00",
         availableDays: [0, 1, 2, 3, 4, 5, 6],
@@ -182,11 +183,11 @@ async function main() {
   }
 
   const deptResources = [
-    { id: "seed-oscilloscope", name: "Oscilloscope", type: "EQUIPMENT" as const, description: "Digital oscilloscope", location: "Electrical Lab", ownerId: deptOfficer.id, departmentId: deptElectrical.id, maxBookingHours: 8 },
-    { id: "seed-multimeter", name: "Multimeter", type: "EQUIPMENT" as const, description: "Digital multimeter", location: "Electrical Lab", ownerId: deptOfficer.id, departmentId: deptElectrical.id, maxBookingHours: 8 },
-    { id: "seed-power-supply", name: "Power Supply", type: "EQUIPMENT" as const, description: "Variable DC power supply", location: "Electrical Lab", ownerId: deptOfficer.id, departmentId: deptElectrical.id, maxBookingHours: 8 },
-    { id: "seed-microscope", name: "Microscope", type: "EQUIPMENT" as const, description: "Compound microscope", location: "Bio Lab", ownerId: deptOfficer.id, departmentId: deptBio.id, maxBookingHours: 4 },
-    { id: "seed-centrifuge", name: "Centrifuge", type: "EQUIPMENT" as const, description: "Lab centrifuge", location: "Bio Lab", ownerId: deptOfficer.id, departmentId: deptBio.id, maxBookingHours: 4 },
+    { id: "seed-oscilloscope", name: "Oscilloscope", type: "EQUIPMENT" as const, description: "Digital oscilloscope", location: "Electrical Lab", ownerId: deptOfficer.id, departmentId: deptElectrical.id, maxBookingHours: 8, maxCount: 4 },
+    { id: "seed-multimeter", name: "Multimeter", type: "EQUIPMENT" as const, description: "Digital multimeter", location: "Electrical Lab", ownerId: deptOfficer.id, departmentId: deptElectrical.id, maxBookingHours: 8, maxCount: 10 },
+    { id: "seed-power-supply", name: "Power Supply", type: "EQUIPMENT" as const, description: "Variable DC power supply", location: "Electrical Lab", ownerId: deptOfficer.id, departmentId: deptElectrical.id, maxBookingHours: 8, maxCount: 3 },
+    { id: "seed-microscope", name: "Microscope", type: "EQUIPMENT" as const, description: "Compound microscope", location: "Bio Lab", ownerId: deptOfficer.id, departmentId: deptBio.id, maxBookingHours: 4, maxCount: 7 },
+    { id: "seed-centrifuge", name: "Centrifuge", type: "EQUIPMENT" as const, description: "Lab centrifuge", location: "Bio Lab", ownerId: deptOfficer.id, departmentId: deptBio.id, maxBookingHours: 4, maxCount: 5 },
   ];
 
   const deptBioOfficer = await prisma.user.upsert({
@@ -206,7 +207,7 @@ async function main() {
     const ownerId = item.departmentId === deptBio.id ? deptBioOfficer.id : deptOfficer.id;
     await prisma.resource.upsert({
       where: { id: item.id },
-      update: { departmentId: item.departmentId, ownerId },
+      update: { departmentId: item.departmentId, ownerId, maxCount: item.maxCount },
       create: {
         id: item.id,
         name: item.name,
@@ -218,6 +219,7 @@ async function main() {
         departmentId: item.departmentId,
         requiresApproval: true,
         maxBookingHours: item.maxBookingHours,
+        maxCount: item.maxCount,
         availableFrom: "08:00",
         availableTo: "22:00",
         availableDays: [1, 2, 3, 4, 5],
