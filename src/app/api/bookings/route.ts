@@ -144,12 +144,6 @@ export async function POST(request: NextRequest) {
     }
 
     const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-    if (durationHours > resource.maxBookingHours) {
-      return NextResponse.json(
-        { success: false, error: `Maximum booking duration is ${resource.maxBookingHours} hours` },
-        { status: 400 }
-      );
-    }
     if (durationHours < resource.minBookingHours) {
       return NextResponse.json(
         { success: false, error: `Minimum booking duration is ${resource.minBookingHours} hour(s)` },

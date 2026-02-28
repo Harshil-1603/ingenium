@@ -50,9 +50,10 @@ export default function ResourcesPage() {
     description: "",
     resourceId: "",
     resourceName: "",
-    date: "",
-    startHour: "09",
-    endHour: "10",
+    startDate: "",
+    startTime: "09:00",
+    endDate: "",
+    endTime: "10:00",
   });
   const [form, setForm] = useState({
     name: "", type: "EQUIPMENT" as string, description: "", location: "",
@@ -112,16 +113,16 @@ export default function ResourcesPage() {
   }
 
   function openBookModal(resource: Resource) {
-    const now = new Date();
-    const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")}`;
+    const today = new Date().toISOString().split("T")[0];
     setBookingForm({
       title: "",
       description: "",
       resourceId: resource.id,
       resourceName: resource.name,
-      date: today,
-      startHour: "09",
-      endHour: "10",
+      startDate: today,
+      startTime: "09:00",
+      endDate: today,
+      endTime: "10:00",
     });
     setBookingModal(true);
   }
@@ -130,8 +131,8 @@ export default function ResourcesPage() {
     e.preventDefault();
     setBookingSubmitting(true);
     try {
-      const startTime = new Date(`${bookingForm.date}T${bookingForm.startHour}:00:00`);
-      const endTime = new Date(`${bookingForm.date}T${bookingForm.endHour}:00:00`);
+      const startTime = new Date(`${bookingForm.startDate}T${bookingForm.startTime}:00`);
+      const endTime = new Date(`${bookingForm.endDate}T${bookingForm.endTime}:00`);
       const res = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -222,7 +223,7 @@ export default function ResourcesPage() {
                   {r.location && (
                     <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-gray-400" />{r.location}</div>
                   )}
-                  <div className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-gray-400" />{r.availableFrom} — {r.availableTo} · Max {r.maxBookingHours}h</div>
+                  <div className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-gray-400" />{r.availableFrom} — {r.availableTo}</div>
                   <div className="flex items-center gap-2"><Package className="h-3.5 w-3.5 text-gray-400" />Total units: <span className="font-semibold text-gray-900">{r.maxCount}</span></div>
                 </div>
                 {r.owner && <p className="mt-3 text-xs text-gray-400">Managed by {r.owner.name}</p>}
@@ -344,40 +345,47 @@ export default function ResourcesPage() {
                 placeholder="Optional"
               />
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                 <input
                   type="date"
                   required
-                  value={bookingForm.date}
-                  onChange={(e) => setBookingForm({ ...bookingForm, date: e.target.value })}
+                  value={bookingForm.startDate}
+                  onChange={(e) => setBookingForm({ ...bookingForm, startDate: e.target.value })}
                   className="input-field"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Start</label>
-                <select
-                  value={bookingForm.startHour}
-                  onChange={(e) => setBookingForm({ ...bookingForm, startHour: e.target.value })}
+                <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                <input
+                  type="time"
+                  required
+                  value={bookingForm.startTime}
+                  onChange={(e) => setBookingForm({ ...bookingForm, startTime: e.target.value })}
                   className="input-field"
-                >
-                  {Array.from({ length: 15 }, (_, i) => i + 8).map((h) => (
-                    <option key={h} value={h.toString().padStart(2, "0")}>{h.toString().padStart(2, "0")}:00</option>
-                  ))}
-                </select>
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">End</label>
-                <select
-                  value={bookingForm.endHour}
-                  onChange={(e) => setBookingForm({ ...bookingForm, endHour: e.target.value })}
+                <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                <input
+                  type="date"
+                  required
+                  value={bookingForm.endDate}
+                  min={bookingForm.startDate}
+                  onChange={(e) => setBookingForm({ ...bookingForm, endDate: e.target.value })}
                   className="input-field"
-                >
-                  {Array.from({ length: 15 }, (_, i) => i + 8).map((h) => (
-                    <option key={h} value={h.toString().padStart(2, "0")}>{h.toString().padStart(2, "0")}:00</option>
-                  ))}
-                </select>
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+                <input
+                  type="time"
+                  required
+                  value={bookingForm.endTime}
+                  onChange={(e) => setBookingForm({ ...bookingForm, endTime: e.target.value })}
+                  className="input-field"
+                />
               </div>
             </div>
             <div className="flex justify-end gap-3 pt-2">
@@ -416,7 +424,7 @@ export default function ResourcesPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Max Booking Hours</label>
-                  <input type="number" min={1} max={72} value={form.maxBookingHours} onChange={(e) => setForm({ ...form, maxBookingHours: e.target.value })} className="input-field" />
+                  <input type="number" min={1} max={720} value={form.maxBookingHours} onChange={(e) => setForm({ ...form, maxBookingHours: e.target.value })} className="input-field" />
                 </div>
               </div>
               <label className="flex items-center gap-2 cursor-pointer">
