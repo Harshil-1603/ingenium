@@ -27,6 +27,9 @@ interface NavSection {
   items: { name: string; href: string; icon: React.ElementType; roles: string[] }[];
 }
 
+const CAN_BOOK_ROOMS = ["PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "DEPARTMENT_OFFICER", "LAB_TECH", "SUPER_ADMIN", "ADMIN"];
+const CAN_VIEW_ROOMS = [...CAN_BOOK_ROOMS, "STUDENT"];
+const CAN_USE_RESOURCES = ["STUDENT", "PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "DEPARTMENT_OFFICER", "LAB_TECH", "SUPER_ADMIN", "ADMIN"];
 const ALL_ROLES = ["STUDENT", "PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "DEPARTMENT_OFFICER", "LAB_TECH", "LHC", "SUPER_ADMIN", "ADMIN"];
 
 const sections: NavSection[] = [
@@ -39,15 +42,15 @@ const sections: NavSection[] = [
   {
     label: "Rooms",
     items: [
-      { name: "Room Directory", href: "/rooms", icon: DoorOpen, roles: ALL_ROLES },
-      { name: "Room Bookings", href: "/room-bookings", icon: BookOpen, roles: ALL_ROLES },
+      { name: "Room Directory", href: "/rooms", icon: DoorOpen, roles: CAN_BOOK_ROOMS },
+      { name: "Room Bookings", href: "/room-bookings", icon: BookOpen, roles: CAN_BOOK_ROOMS },
     ],
   },
   {
     label: "Resources",
     items: [
-      { name: "Resource Directory", href: "/resources", icon: Box, roles: ALL_ROLES },
-      { name: "Resource Bookings", href: "/resource-bookings", icon: PackageSearch, roles: ALL_ROLES },
+      { name: "Resource Directory", href: "/resources", icon: Box, roles: CAN_USE_RESOURCES },
+      { name: "Resource Bookings", href: "/resource-bookings", icon: PackageSearch, roles: CAN_USE_RESOURCES },
     ],
   },
   {

@@ -44,26 +44,30 @@ export function canApproveResource(
 type ResourceForBooking = { type: string; departmentId: string | null; clubId: string | null };
 type UserForBooking = { role: string; departmentId: string | null; clubId: string | null };
 
-/** Can this user book this (non-room) resource? Student: club + dept. Professor: dept only. Club: their club. Dept: their dept. Admin: all. */
+/** Can this user book this (non-room) resource? Student: club + dept. Professor: dept only. Club: ANY resource. Dept: their dept. Admin: all. LHC: nothing. */
 export function canBookResource(
   user: UserForBooking,
   resource: ResourceForBooking
 ): boolean {
   if (resource.type === "ROOM") return canBookRoom(user);
+  if (user.role === "LHC") return false;
   if (ADMIN_ROLES.includes(user.role)) return true;
+  if (["CLUB_ADMIN", "CLUB_MANAGER"].includes(user.role)) return true;
   if (user.role === "STUDENT") {
     return resource.departmentId != null || resource.clubId != null;
   }
   if (user.role === "PROFESSOR") {
     return resource.departmentId != null;
   }
-  if (CLUB_MANAGER_ROLES.includes(user.role) && resource.clubId != null) {
-    return user.clubId === resource.clubId;
-  }
   if (DEPT_OFFICER_ROLES.includes(user.role) && resource.departmentId != null) {
     return user.departmentId === resource.departmentId;
   }
   return false;
+}
+
+/** Can this role book any resource at all? Used for sidebar visibility. */
+export function canBookAnyResource(user: { role: string }): boolean {
+  return !["LHC"].includes(user.role);
 }
 
 export function requireRole(user: { role: string } | null, allowedRoles: string[]): boolean {
