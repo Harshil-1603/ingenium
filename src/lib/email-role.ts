@@ -13,15 +13,6 @@ const IITJ_DOMAIN = "iitj.ac.in";
 
 const STUDENT_RE = /^[bmp]\d{2}[a-z]{2,4}\d{3,5}@iitj\.ac\.in$/i;
 
-const DEPT_SOCIETY_RE = /^bds[@.]([a-z]+)(?:[@.]iitj\.ac\.in)$/i;
-
-const KNOWN_CLUBS = [
-  "shutterbugs", "robotics", "electronica", "ignus", "prometeo",
-  "aeromodelling", "astro", "edc", "dsc", "gdsc", "sae", "acm",
-  "ieee", "imc", "udghosh", "zephyr", "nirmaan", "prakriti",
-  "virasat", "lithmus", "cyphora", "horizon", "devlup", "coding",
-];
-
 export interface EmailDetection {
   role: DetectedRole;
   rollNumber: string | null;
@@ -52,21 +43,6 @@ export function detectRoleFromEmail(email: string): EmailDetection {
     result.rollNumber = local.toUpperCase();
     return result;
   }
-
-  if (local.startsWith("bds@") || local.startsWith("bds.")) {
-    const deptPart = local.replace(/^bds[@.]/, "");
-    result.role = "DEPARTMENT_OFFICER";
-    result.deptSlugHint = deptPart;
-    return result;
-  }
-
-  if (KNOWN_CLUBS.includes(local) || !local.includes(".") && /^[a-z]+$/.test(local) && local.length <= 20) {
-    result.role = "CLUB_ADMIN";
-    result.clubSlugHint = local;
-    return result;
-  }
-
-  result.role = "PROFESSOR";
   return result;
 }
 
