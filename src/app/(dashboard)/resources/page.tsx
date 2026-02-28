@@ -428,7 +428,7 @@ export default function ResourcesPage() {
   );
 }
 
-function ResourceCard({ resource: r, user, onBook }: { resource: Resource; user: { role: string; departmentId?: string; clubId?: string }; onBook: () => void }) {
+function ResourceCard({ resource: r, user, onBook }: { resource: Resource; user: { role: string; departmentId?: string | null; clubId?: string | null }; onBook: () => void }) {
   const showBook = canBookResource(
     { role: user.role, departmentId: user.departmentId ?? null, clubId: user.clubId ?? null },
     { type: r.type, departmentId: r.departmentId ?? null, clubId: r.clubId ?? null }
