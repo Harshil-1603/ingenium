@@ -224,6 +224,12 @@ export default function ResourcesPage() {
                 <div className="flex-1">
                   {r.description && <p className="text-sm text-gray-500 mb-3">{r.description}</p>}
                   <div className="space-y-1.5 text-sm text-gray-600">
+                    {r.department && (
+                      <div className="flex items-center gap-2">{r.department.name}</div>
+                    )}
+                    {r.club && (
+                      <div className="flex items-center gap-2">{r.club.name}</div>
+                    )}
                     {r.location && (
                       <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-gray-400" />{r.location}</div>
                     )}
@@ -272,7 +278,15 @@ export default function ResourcesPage() {
                         </div>
                         <div className="flex-1">
                           {r.description && <p className="text-sm text-gray-500 mb-3">{r.description}</p>}
-                          <div className="flex items-center gap-2 text-sm text-gray-600 mb-1"><Package className="h-3.5 w-3.5 text-gray-400" />Total units: <span className="font-semibold text-gray-900">{r.maxCount}</span></div>
+                          <div className="space-y-1.5 text-sm text-gray-600">
+                            {r.club && (
+                              <div className="flex items-center gap-2">{r.club.name}</div>
+                            )}
+                            {r.location && (
+                              <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-gray-400" />{r.location}</div>
+                            )}
+                            <div className="flex items-center gap-2"><Package className="h-3.5 w-3.5 text-gray-400" />Total units: <span className="font-semibold text-gray-900">{r.maxCount}</span></div>
+                          </div>
                         </div>
                         <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-2">
                           <Link href={`/calendar?resource=${r.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-700">View Calendar</Link>
@@ -308,7 +322,15 @@ export default function ResourcesPage() {
                         </div>
                         <div className="flex-1">
                           {r.description && <p className="text-sm text-gray-500 mb-3">{r.description}</p>}
-                          <div className="flex items-center gap-2 text-sm text-gray-600 mb-1"><Package className="h-3.5 w-3.5 text-gray-400" />Total units: <span className="font-semibold text-gray-900">{r.maxCount}</span></div>
+                          <div className="space-y-1.5 text-sm text-gray-600">
+                            {r.department && (
+                              <div className="flex items-center gap-2">{r.department.name}</div>
+                            )}
+                            {r.location && (
+                              <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-gray-400" />{r.location}</div>
+                            )}
+                            <div className="flex items-center gap-2"><Package className="h-3.5 w-3.5 text-gray-400" />Total units: <span className="font-semibold text-gray-900">{r.maxCount}</span></div>
+                          </div>
                         </div>
                         <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-2">
                           <Link href={`/calendar?resource=${r.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-700">View Calendar</Link>
