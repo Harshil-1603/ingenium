@@ -10,17 +10,28 @@ export function useAuth() {
   const router = useRouter();
 
   const fetchUser = useCallback(async () => {
+    let done = false;
+    const timeout = setTimeout(() => {
+      if (done) return;
+      done = true;
+      setLoading(false);
+      setUser(null);
+    }, 10000);
+
     try {
-      const res = await fetch("/api/auth/me");
+      const res = await fetch("/api/auth/me", { credentials: "include" });
       const data = await res.json();
+      if (done) return;
       if (data.success) {
         setUser(data.data);
       } else {
         setUser(null);
       }
     } catch {
-      setUser(null);
+      if (!done) setUser(null);
     } finally {
+      done = true;
+      clearTimeout(timeout);
       setLoading(false);
     }
   }, []);

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { createAuditLog } from "@/lib/audit";
+import { canReopenOrOverride } from "@/lib/rbac";
+import { logAction } from "@/lib/logger";
 import { createNotification } from "@/lib/notifications";
 import { promoteNextInWaitlist } from "@/lib/waitlist";
+import { sendEmail, bookingCancelledEmail } from "@/lib/email";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -15,14 +17,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { id } = await params;
     const booking = await prisma.booking.findUnique({
       where: { id },
-      include: { resource: true, waitlistEntry: true },
+      include: { resource: true, waitlistEntry: true, user: { select: { id: true, name: true, email: true } } },
     });
 
     if (!booking) {
       return NextResponse.json({ success: false, error: "Booking not found" }, { status: 404 });
     }
 
-    if (booking.userId !== user.id && user.role !== "SUPER_ADMIN") {
+    const isOwner = booking.userId === user.id;
+    const isAdmin = canReopenOrOverride(user);
+    if (!isOwner && !isAdmin) {
       return NextResponse.json({ success: false, error: "Access denied" }, { status: 403 });
     }
 
@@ -33,6 +37,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       );
     }
 
+    const previousStatus = booking.status;
     await prisma.$transaction([
       prisma.booking.update({
         where: { id },
@@ -46,12 +51,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         : []),
     ]);
 
-    await createAuditLog({
+    await logAction({
+      userId: user.id,
       action: "BOOKING_CANCELLED",
       entityType: "Booking",
       entityId: id,
-      userId: user.id,
-      metadata: { title: booking.title, previousStatus: booking.status },
+      oldState: previousStatus,
+      newState: "CANCELLED",
+      metadata: { title: booking.title },
     });
 
     await createNotification({
@@ -62,7 +69,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       metadata: { bookingId: id },
     });
 
-    if (["PENDING", "APPROVED"].includes(booking.status)) {
+    const emailData = bookingCancelledEmail(booking.user.name, booking.title, booking.resource.name);
+    sendEmail({ to: booking.user.email, ...emailData }).catch(() => {});
+
+    if (["PENDING", "APPROVED"].includes(previousStatus)) {
       await promoteNextInWaitlist(booking.resourceId, booking.startTime, booking.endTime);
     }
 

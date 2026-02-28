@@ -9,9 +9,14 @@ datasource db {
 
 enum Role {
   STUDENT
+  PROFESSOR
   CLUB_ADMIN
+  CLUB_MANAGER
   DEPARTMENT_OFFICER
+  LAB_TECH
+  LHC
   SUPER_ADMIN
+  ADMIN
 }
 
 enum ResourceType {
@@ -26,6 +31,7 @@ enum BookingStatus {
   REJECTED
   CANCELLED
   WAITLISTED
+  OVERRIDDEN
 }
 
 enum WaitlistStatus {
@@ -35,19 +41,50 @@ enum WaitlistStatus {
   CANCELLED
 }
 
+model Department {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  resources Resource[]
+  users     User[]     @relation("UserDepartment")
+
+  @@index([slug])
+}
+
+model Club {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  resources Resource[]
+  users     User[]     @relation("UserClub")
+
+  @@index([slug])
+}
+
 model User {
   id             String   @id @default(cuid())
   email          String   @unique
   password       String
   name           String
   role           Role     @default(STUDENT)
+  rollNumber     String?
+  departmentId   String?
   department     String?
   phone          String?
   avatarUrl      String?
   isActive       Boolean  @default(true)
+  clubId         String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  departmentRef  Department? @relation("UserDepartment", fields: [departmentId], references: [id])
+  club           Club?      @relation("UserClub", fields: [clubId], references: [id])
   bookings       Booking[]       @relation("UserBookings")
   approvals      Booking[]       @relation("ApprovedBookings")
   ownedResources Resource[]      @relation("ResourceOwner")
@@ -57,6 +94,8 @@ model User {
 
   @@index([email])
   @@index([role])
+  @@index([departmentId])
+  @@index([clubId])
 }
 
 model Resource {
@@ -75,15 +114,21 @@ model Resource {
   availableTo     String       @default("22:00")
   availableDays   Int[]        @default([1, 2, 3, 4, 5])
   ownerId         String?
+  departmentId    String?
+  clubId          String?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
   owner           User?        @relation("ResourceOwner", fields: [ownerId], references: [id])
+  department      Department?  @relation(fields: [departmentId], references: [id])
+  club            Club?        @relation(fields: [clubId], references: [id])
   bookings        Booking[]
   waitlistEntries WaitlistEntry[]
 
   @@index([type])
   @@index([ownerId])
+  @@index([departmentId])
+  @@index([clubId])
 }
 
 model Booking {
@@ -135,6 +180,8 @@ model AuditLog {
   entityType String
   entityId   String
   userId     String
+  oldState   String?
+  newState   String?
   metadata   Json?
   ipAddress  String?
   createdAt  DateTime @default(now())

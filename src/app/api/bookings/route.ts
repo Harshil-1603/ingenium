@@ -6,6 +6,7 @@ import { createAuditLog } from "@/lib/audit";
 import { createNotification } from "@/lib/notifications";
 import { sendEmail, bookingConfirmationEmail } from "@/lib/email";
 import { getNextWaitlistPosition } from "@/lib/waitlist";
+import { canBookRoom, canBookResource } from "@/lib/rbac";
 import { formatDateTime, paginate } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
 
     const where: Record<string, unknown> = {};
 
-    if (scope === "own" && !["SUPER_ADMIN", "DEPARTMENT_OFFICER"].includes(user.role)) {
+    if (scope === "own" && !["SUPER_ADMIN", "ADMIN", "DEPARTMENT_OFFICER", "LAB_TECH", "LHC"].includes(user.role)) {
       where.userId = user.id;
     } else if (scope === "own") {
       where.userId = user.id;
@@ -32,10 +33,14 @@ export async function GET(request: NextRequest) {
 
     if (scope === "pending-approval") {
       where.status = "PENDING";
-      if (user.role === "SUPER_ADMIN") {
-        // can see all
-      } else if (["DEPARTMENT_OFFICER", "CLUB_ADMIN"].includes(user.role)) {
-        where.resource = { ownerId: user.id };
+      if (["SUPER_ADMIN", "ADMIN"].includes(user.role)) {
+        // see all
+      } else if (user.role === "LHC") {
+        where.resource = { type: "ROOM" };
+      } else if (["CLUB_ADMIN", "CLUB_MANAGER"].includes(user.role) && user.clubId) {
+        where.resource = { clubId: user.clubId };
+      } else if (["DEPARTMENT_OFFICER", "LAB_TECH"].includes(user.role) && user.departmentId) {
+        where.resource = { departmentId: user.departmentId };
       } else {
         return NextResponse.json({ success: false, error: "Insufficient permissions" }, { status: 403 });
       }
@@ -93,7 +98,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { title, description, resourceId, startTime, endTime } = parsed.data;
+    const { title, description, resourceId, startTime, endTime, rollNumber } = parsed.data;
     const start = new Date(startTime);
     const end = new Date(endTime);
 
@@ -117,6 +122,39 @@ export async function POST(request: NextRequest) {
         { success: false, error: "Resource not found or inactive" },
         { status: 404 }
       );
+    }
+
+    if (resource.type === "ROOM") {
+      if (!canBookRoom(user)) {
+        return NextResponse.json(
+          { success: false, error: "Only Professors, Club managers, and Department officers can book rooms. Students and LHC cannot book rooms." },
+          { status: 403 }
+        );
+      }
+    } else {
+      if (!canBookResource(
+        { role: user.role, departmentId: user.departmentId ?? null, clubId: user.clubId ?? null },
+        { type: resource.type, departmentId: resource.departmentId ?? null, clubId: resource.clubId ?? null }
+      )) {
+        return NextResponse.json(
+          { success: false, error: "You do not have permission to book this resource. Professors can only book department resources; students can book club and department resources." },
+          { status: 403 }
+        );
+      }
+    }
+
+    if (user.role === "STUDENT" && (!rollNumber || String(rollNumber).trim() === "")) {
+      return NextResponse.json(
+        { success: false, error: "Roll number is required when requesting as a student" },
+        { status: 400 }
+      );
+    }
+
+    if (user.role === "STUDENT" && rollNumber) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { rollNumber: String(rollNumber).trim() },
+      });
     }
 
     const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);

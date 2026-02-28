@@ -100,3 +100,17 @@ export function waitlistPromotedEmail(userName: string, bookingTitle: string, re
     `,
   };
 }
+
+export function bookingCancelledEmail(userName: string, bookingTitle: string, resourceName: string) {
+  return {
+    subject: `Booking Cancelled: ${bookingTitle}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #6b7280;">Campus Grid - Booking Cancelled</h2>
+        <p>Hi ${userName},</p>
+        <p>Your booking <strong>${bookingTitle}</strong> for <strong>${resourceName}</strong> has been cancelled.</p>
+        <p style="color: #6b7280; font-size: 14px;">— Campus Grid System</p>
+      </div>
+    `,
+  };
+}

@@ -11,7 +11,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    if (user.role !== "SUPER_ADMIN") {
+    if (!["SUPER_ADMIN", "ADMIN"].includes(user.role)) {
       return NextResponse.json({ success: false, error: "Only Super Admins can change roles" }, { status: 403 });
     }
 

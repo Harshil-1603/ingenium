@@ -15,6 +15,7 @@ import {
   LogOut,
   Grid3X3,
 } from "lucide-react";
+import { hasAdminPanel } from "@/lib/rbac";
 
 interface SidebarProps {
   userRole: string;
@@ -26,7 +27,7 @@ interface NavSection {
   items: { name: string; href: string; icon: React.ElementType; roles: string[] }[];
 }
 
-const ALL_ROLES = ["STUDENT", "CLUB_ADMIN", "DEPARTMENT_OFFICER", "SUPER_ADMIN"];
+const ALL_ROLES = ["STUDENT", "PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "DEPARTMENT_OFFICER", "LAB_TECH", "LHC", "SUPER_ADMIN", "ADMIN"];
 
 const sections: NavSection[] = [
   {
@@ -52,15 +53,16 @@ const sections: NavSection[] = [
   {
     label: "Administration",
     items: [
-      { name: "Approvals", href: "/approvals", icon: ClipboardCheck, roles: ["CLUB_ADMIN", "DEPARTMENT_OFFICER", "SUPER_ADMIN"] },
-      { name: "Audit Logs", href: "/audit", icon: ScrollText, roles: ["DEPARTMENT_OFFICER", "SUPER_ADMIN"] },
-      { name: "Manage Users", href: "/admin/users", icon: Users, roles: ["SUPER_ADMIN"] },
+      { name: "Approvals", href: "/approvals", icon: ClipboardCheck, roles: ["CLUB_ADMIN", "CLUB_MANAGER", "DEPARTMENT_OFFICER", "LAB_TECH", "LHC", "SUPER_ADMIN", "ADMIN"] },
+      { name: "Audit Logs", href: "/audit", icon: ScrollText, roles: ["DEPARTMENT_OFFICER", "LAB_TECH", "LHC", "SUPER_ADMIN", "ADMIN"] },
+      { name: "Manage Users", href: "/admin/users", icon: Users, roles: ["SUPER_ADMIN", "ADMIN"] },
     ],
   },
 ];
 
 export function Sidebar({ userRole, onLogout }: SidebarProps) {
   const pathname = usePathname();
+  const showAdminPanel = hasAdminPanel({ role: userRole });
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-gray-200 bg-white">
@@ -71,6 +73,7 @@ export function Sidebar({ userRole, onLogout }: SidebarProps) {
 
       <nav className="flex-1 overflow-y-auto p-4 space-y-5">
         {sections.map((section, si) => {
+          if (section.label === "Administration" && !showAdminPanel) return null;
           const visibleItems = section.items.filter((item) => item.roles.includes(userRole));
           if (visibleItems.length === 0) return null;
           return (

@@ -26,6 +26,8 @@ export const createResourceSchema = z.object({
   availableTo: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   availableDays: z.array(z.number().int().min(0).max(6)).optional(),
   ownerId: z.string().optional(),
+  departmentId: z.string().optional(),
+  clubId: z.string().optional(),
 });
 
 export const updateResourceSchema = createResourceSchema.partial();
@@ -36,6 +38,7 @@ export const createBookingSchema = z.object({
   resourceId: z.string().min(1, "Resource is required"),
   startTime: z.string().datetime({ offset: true }).or(z.string().min(1)),
   endTime: z.string().datetime({ offset: true }).or(z.string().min(1)),
+  rollNumber: z.string().optional(), // required for STUDENT when requesting
 });
 
 export const approvalSchema = z.object({
@@ -43,7 +46,7 @@ export const approvalSchema = z.object({
 });
 
 export const updateRoleSchema = z.object({
-  role: z.enum(["STUDENT", "CLUB_ADMIN", "DEPARTMENT_OFFICER", "SUPER_ADMIN"]),
+  role: z.enum(["STUDENT", "PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "DEPARTMENT_OFFICER", "LAB_TECH", "LHC", "SUPER_ADMIN", "ADMIN"]),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;

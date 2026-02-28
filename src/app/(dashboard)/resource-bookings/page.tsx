@@ -30,6 +30,10 @@ interface Resource {
   name: string;
   type: string;
   location: string;
+  departmentId?: string | null;
+  clubId?: string | null;
+  department?: { id: string; slug: string; name: string } | null;
+  club?: { id: string; slug: string; name: string } | null;
 }
 
 export default function ResourceBookingsPage() {
@@ -177,8 +181,14 @@ export default function ResourceBookingsPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Resource</label>
               <select required value={form.resourceId} onChange={(e) => setForm({ ...form, resourceId: e.target.value })} className="input-field">
                 <option value="">Select equipment or asset</option>
-                {resources.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name} ({getResourceTypeLabel(r.type)}){r.location ? ` — ${r.location}` : ""}</option>
+                {resources.filter((r) => r.departmentId).map((r) => (
+                  <option key={r.id} value={r.id}>{r.name} ({r.department?.name ?? "Dept"}){r.location ? ` — ${r.location}` : ""}</option>
+                ))}
+                {resources.filter((r) => r.clubId).map((r) => (
+                  <option key={r.id} value={r.id}>{r.name} ({r.club?.name ?? "Club"}){r.location ? ` — ${r.location}` : ""}</option>
+                ))}
+                {resources.filter((r) => !r.departmentId && !r.clubId).map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}{r.location ? ` — ${r.location}` : ""}</option>
                 ))}
               </select>
             </div>

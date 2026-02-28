@@ -47,7 +47,7 @@ export default function DashboardPage() {
 
   if (!user) return null;
 
-  const isAdmin = ["SUPER_ADMIN", "DEPARTMENT_OFFICER"].includes(user.role);
+  const isAdmin = ["SUPER_ADMIN", "ADMIN", "DEPARTMENT_OFFICER"].includes(user.role);
 
   return (
     <div>

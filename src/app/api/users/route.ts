@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    if (user.role !== "SUPER_ADMIN") {
+    if (!["SUPER_ADMIN", "ADMIN"].includes(user.role)) {
       return NextResponse.json({ success: false, error: "Insufficient permissions" }, { status: 403 });
     }
 

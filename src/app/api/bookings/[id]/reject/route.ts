@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getCurrentUser, canApproveBooking } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
+import { canApproveResource } from "@/lib/rbac";
 import { approvalSchema } from "@/lib/validations";
-import { createAuditLog } from "@/lib/audit";
+import { logAction } from "@/lib/logger";
 import { createNotification } from "@/lib/notifications";
 import { sendEmail, bookingRejectedEmail } from "@/lib/email";
 import { promoteNextInWaitlist } from "@/lib/waitlist";
@@ -38,10 +39,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       );
     }
 
-    if (!canApproveBooking(user.role, booking.resource.ownerId, user.id)) {
-      return NextResponse.json({ success: false, error: "Insufficient permissions" }, { status: 403 });
+    if (!canApproveResource(
+      { role: user.role, id: user.id, departmentId: user.departmentId ?? null, clubId: user.clubId ?? null },
+      { type: booking.resource.type, ownerId: booking.resource.ownerId, departmentId: booking.resource.departmentId ?? null, clubId: booking.resource.clubId ?? null }
+    )) {
+      return NextResponse.json({ success: false, error: "Insufficient permissions to reject this booking" }, { status: 403 });
     }
 
+    const previousStatus = booking.status;
     const updated = await prisma.booking.update({
       where: { id },
       data: {
@@ -55,11 +60,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       },
     });
 
-    await createAuditLog({
+    await logAction({
+      userId: user.id,
       action: "BOOKING_REJECTED",
       entityType: "Booking",
       entityId: id,
-      userId: user.id,
+      oldState: previousStatus,
+      newState: "REJECTED",
       metadata: { comment, rejectedBy: user.name },
     });
 

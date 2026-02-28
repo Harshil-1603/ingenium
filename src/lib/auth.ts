@@ -23,7 +23,10 @@ export async function getCurrentUser(): Promise<SafeUser | null> {
       email: true,
       name: true,
       role: true,
+      rollNumber: true,
       department: true,
+      departmentId: true,
+      clubId: true,
       phone: true,
       avatarUrl: true,
       isActive: true,
@@ -59,8 +62,9 @@ export function canManageResource(userRole: string, resourceOwnerId: string | nu
 }
 
 export function canApproveBooking(userRole: string, resourceOwnerId: string | null, userId: string): boolean {
-  if (userRole === "SUPER_ADMIN") return true;
-  if (userRole === "DEPARTMENT_OFFICER" && resourceOwnerId === userId) return true;
-  if (userRole === "CLUB_ADMIN" && resourceOwnerId === userId) return true;
+  if (["SUPER_ADMIN", "ADMIN"].includes(userRole)) return true;
+  if (["DEPARTMENT_OFFICER", "LAB_TECH"].includes(userRole) && resourceOwnerId === userId) return true;
+  if (["CLUB_ADMIN", "CLUB_MANAGER"].includes(userRole) && resourceOwnerId === userId) return true;
+  if (userRole === "LHC") return true; // LHC approves room bookings (resource owner is LHC)
   return false;
 }

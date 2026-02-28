@@ -30,7 +30,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     if (
       booking.userId !== user.id &&
-      !["SUPER_ADMIN", "DEPARTMENT_OFFICER"].includes(user.role) &&
+      !["SUPER_ADMIN", "ADMIN", "DEPARTMENT_OFFICER"].includes(user.role) &&
       booking.resource.ownerId !== user.id
     ) {
       return NextResponse.json({ success: false, error: "Access denied" }, { status: 403 });

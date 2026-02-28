@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 import { signToken } from "@/lib/jwt";
-import { setTokenCookie } from "@/lib/auth";
 import { loginSchema } from "@/lib/validations";
 import { createAuditLog } from "@/lib/audit";
 
@@ -43,26 +42,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    try {
-      await createAuditLog({
-        action: "USER_LOGIN",
-        entityType: "User",
-        entityId: user.id,
-        userId: user.id,
-        metadata: { email },
-      });
-    } catch (auditError) {
-      console.warn("[Login] Audit log failed:", auditError);
-    }
+    createAuditLog({
+      action: "USER_LOGIN",
+      entityType: "User",
+      entityId: user.id,
+      userId: user.id,
+      metadata: { email },
+    }).catch((err) => console.warn("[Login] Audit log failed:", err));
 
     const token = await signToken({ userId: user.id, email: user.email, role: user.role });
 
-    const { password: _, ...safeUser } = user;
+    const safeUser = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      rollNumber: user.rollNumber ?? null,
+      department: user.department ?? null,
+      departmentId: user.departmentId ?? null,
+      clubId: user.clubId ?? null,
+      phone: user.phone ?? null,
+      avatarUrl: user.avatarUrl ?? null,
+      isActive: user.isActive,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString(),
+    };
 
-    return NextResponse.json(
-      { success: true, data: safeUser },
-      { headers: setTokenCookie(token) }
-    );
+    const response = NextResponse.json({ success: true, data: safeUser });
+    response.cookies.set("campus-grid-token", token, {
+      httpOnly: true,
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60,
+      sameSite: "lax",
+    });
+    return response;
   } catch (error) {
     console.error("[Login]", error);
     return NextResponse.json(

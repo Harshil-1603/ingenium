@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { toast } from "@/components/ui/Toaster";
 import { getStatusColor, formatDateTime } from "@/lib/utils";
 import { Plus, DoorOpen, X } from "lucide-react";
+import { canBookRoom } from "@/lib/rbac";
 
 interface Booking {
   id: string;
@@ -103,6 +104,7 @@ export default function RoomBookingsPage() {
   }
 
   if (!user) return null;
+  const canBook = canBookRoom({ role: user.role });
 
   return (
     <div>
@@ -119,9 +121,11 @@ export default function RoomBookingsPage() {
               <option value="CANCELLED">Cancelled</option>
             </select>
           </div>
-          <button onClick={() => setCreateModal(true)} className="btn-primary">
-            <Plus className="h-4 w-4 mr-2" /> Book a Room
-          </button>
+          {canBook && (
+            <button onClick={() => setCreateModal(true)} className="btn-primary">
+              <Plus className="h-4 w-4 mr-2" /> Book a Room
+            </button>
+          )}
         </div>
 
         {loading ? <LoadingSpinner /> : bookings.length === 0 ? (
@@ -129,7 +133,7 @@ export default function RoomBookingsPage() {
             title="No room bookings"
             description="Book a room from the calendar or create a booking here."
             icon={<DoorOpen className="h-8 w-8 text-gray-400" />}
-            action={<button onClick={() => setCreateModal(true)} className="btn-primary">Book a Room</button>}
+            action={canBook ? <button onClick={() => setCreateModal(true)} className="btn-primary">Book a Room</button> : undefined}
           />
         ) : (
           <div className="space-y-3">

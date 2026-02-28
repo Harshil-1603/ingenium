@@ -8,7 +8,8 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { toast } from "@/components/ui/Toaster";
 import { getResourceTypeLabel } from "@/lib/utils";
-import { Plus, Box, MapPin, Clock, Search, Tag, CalendarPlus } from "lucide-react";
+import { canBookResource } from "@/lib/rbac";
+import { Plus, Box, MapPin, Clock, Search, Tag, CalendarPlus, Building2, Users } from "lucide-react";
 import Link from "next/link";
 
 interface Resource {
@@ -22,6 +23,10 @@ interface Resource {
   maxBookingHours: number;
   availableFrom: string;
   availableTo: string;
+  departmentId: string | null;
+  clubId: string | null;
+  department?: { id: string; slug: string; name: string } | null;
+  club?: { id: string; slug: string; name: string } | null;
   owner: { id: string; name: string; email: string } | null;
   _count: { bookings: number };
 }
@@ -29,9 +34,12 @@ interface Resource {
 export default function ResourcesPage() {
   const { user } = useAuth();
   const [resources, setResources] = useState<Resource[]>([]);
+  const [departments, setDepartments] = useState<{ id: string; slug: string; name: string }[]>([]);
+  const [clubs, setClubs] = useState<{ id: string; slug: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+  const [sectionFilter, setSectionFilter] = useState<"all" | "club" | "department">("all");
   const [createModal, setCreateModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [bookingModal, setBookingModal] = useState(false);
@@ -58,13 +66,21 @@ export default function ResourcesPage() {
       const params = new URLSearchParams({ pageSize: "50" });
       if (search) params.set("search", search);
       const filterType = typeFilter || "";
-      const res = await fetch(`/api/resources?${params}`);
-      const data = await res.json();
-      if (data.success) {
-        let filtered = data.data.filter((r: Resource) => r.type === "EQUIPMENT" || r.type === "ASSET");
+      const [resRes, deptRes, clubRes] = await Promise.all([
+        fetch(`/api/resources?${params}`),
+        fetch("/api/departments"),
+        fetch("/api/clubs"),
+      ]);
+      const resData = await resRes.json();
+      const deptData = await deptRes.json();
+      const clubData = await clubRes.json();
+      if (resData.success) {
+        let filtered = resData.data.filter((r: Resource) => r.type === "EQUIPMENT" || r.type === "ASSET");
         if (filterType) filtered = filtered.filter((r: Resource) => r.type === filterType);
         setResources(filtered);
       }
+      if (deptData.success) setDepartments(deptData.data);
+      if (clubData.success) setClubs(clubData.data);
     } catch {} finally { setLoading(false); }
   }
 
@@ -142,7 +158,7 @@ export default function ResourcesPage() {
   }
 
   if (!user) return null;
-  const canCreate = ["DEPARTMENT_OFFICER", "SUPER_ADMIN", "CLUB_ADMIN"].includes(user.role);
+  const canCreate = ["DEPARTMENT_OFFICER", "LAB_TECH", "SUPER_ADMIN", "ADMIN", "CLUB_ADMIN", "CLUB_MANAGER"].includes(user.role);
 
   return (
     <div>
@@ -165,6 +181,11 @@ export default function ResourcesPage() {
               <option value="EQUIPMENT">Equipment</option>
               <option value="ASSET">Asset</option>
             </select>
+            <select value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value as "all" | "club" | "department")} className="input-field w-auto max-w-[140px]">
+              <option value="all">All</option>
+              <option value="department">By Department</option>
+              <option value="club">By Club</option>
+            </select>
           </div>
           {canCreate && (
             <button onClick={() => setCreateModal(true)} className="btn-primary">
@@ -179,7 +200,7 @@ export default function ResourcesPage() {
             description={canCreate ? "Add equipment or assets for others to book." : "No equipment or assets are available yet."}
             icon={<Box className="h-8 w-8 text-gray-400" />}
           />
-        ) : (
+        ) : sectionFilter === "all" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {resources.map((r) => (
               <div key={r.id} className="card hover:shadow-md transition-shadow">
@@ -207,17 +228,91 @@ export default function ResourcesPage() {
                   <Link href={`/calendar?resource=${r.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-700">
                     View Calendar
                   </Link>
-                  <button
-                    type="button"
-                    onClick={() => openBookModal(r)}
-                    className="btn-primary w-full flex items-center justify-center gap-2 py-2 text-sm"
-                  >
-                    <CalendarPlus className="h-4 w-4" />
-                    Book Now
-                  </button>
+                  {canBookResource(
+                    { role: user.role, departmentId: (user as { departmentId?: string }).departmentId ?? null, clubId: (user as { clubId?: string }).clubId ?? null },
+                    { type: r.type, departmentId: r.departmentId ?? null, clubId: r.clubId ?? null }
+                  ) && (
+                    <button
+                      type="button"
+                      onClick={() => openBookModal(r)}
+                      className="btn-primary w-full flex items-center justify-center gap-2 py-2 text-sm"
+                    >
+                      <CalendarPlus className="h-4 w-4" />
+                      Book Now
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {sectionFilter === "department" && departments.map((dept) => {
+              const list = resources.filter((r) => r.departmentId === dept.id);
+              if (list.length === 0) return null;
+              return (
+                <div key={dept.id}>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-gray-500" /> {dept.name}
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {list.map((r) => (
+                      <div key={r.id} className="card hover:shadow-md transition-shadow">
+                        <div className="flex items-start justify-between mb-3">
+                          <h3 className="font-semibold text-gray-900">{r.name}</h3>
+                          <span className={`badge ${r.requiresApproval ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"}`}>{r.requiresApproval ? "Needs Approval" : "Auto-approve"}</span>
+                        </div>
+                        {r.description && <p className="text-sm text-gray-500 mb-3">{r.description}</p>}
+                        <div className="mt-4 flex flex-col gap-3">
+                          <Link href={`/calendar?resource=${r.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-700">View Calendar</Link>
+                          {canBookResource(
+                            { role: user.role, departmentId: (user as { departmentId?: string }).departmentId ?? null, clubId: (user as { clubId?: string }).clubId ?? null },
+                            { type: r.type, departmentId: r.departmentId ?? null, clubId: r.clubId ?? null }
+                          ) && (
+                            <button type="button" onClick={() => openBookModal(r)} className="btn-primary w-full flex items-center justify-center gap-2 py-2 text-sm">
+                              <CalendarPlus className="h-4 w-4" /> Book Now
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+            {sectionFilter === "club" && clubs.map((club) => {
+              const list = resources.filter((r) => r.clubId === club.id);
+              if (list.length === 0) return null;
+              return (
+                <div key={club.id}>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <Users className="h-5 w-5 text-gray-500" /> {club.name}
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {list.map((r) => (
+                      <div key={r.id} className="card hover:shadow-md transition-shadow">
+                        <div className="flex items-start justify-between mb-3">
+                          <h3 className="font-semibold text-gray-900">{r.name}</h3>
+                          <span className={`badge ${r.requiresApproval ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"}`}>{r.requiresApproval ? "Needs Approval" : "Auto-approve"}</span>
+                        </div>
+                        {r.description && <p className="text-sm text-gray-500 mb-3">{r.description}</p>}
+                        <div className="mt-4 flex flex-col gap-3">
+                          <Link href={`/calendar?resource=${r.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-700">View Calendar</Link>
+                          {canBookResource(
+                            { role: user.role, departmentId: (user as { departmentId?: string }).departmentId ?? null, clubId: (user as { clubId?: string }).clubId ?? null },
+                            { type: r.type, departmentId: r.departmentId ?? null, clubId: r.clubId ?? null }
+                          ) && (
+                            <button type="button" onClick={() => openBookModal(r)} className="btn-primary w-full flex items-center justify-center gap-2 py-2 text-sm">
+                              <CalendarPlus className="h-4 w-4" /> Book Now
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 

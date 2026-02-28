@@ -17,9 +17,13 @@ export async function GET(request: NextRequest) {
     const pageSize = Math.min(50, Math.max(1, Number(searchParams.get("pageSize")) || 20));
     const type = searchParams.get("type");
     const search = searchParams.get("search");
+    const departmentId = searchParams.get("departmentId");
+    const clubId = searchParams.get("clubId");
 
     const where: Record<string, unknown> = { isActive: true };
     if (type) where.type = type;
+    if (departmentId) where.departmentId = departmentId;
+    if (clubId) where.clubId = clubId;
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
@@ -34,6 +38,8 @@ export async function GET(request: NextRequest) {
           owner: {
             select: { id: true, name: true, email: true, role: true, department: true },
           },
+          department: { select: { id: true, slug: true, name: true } },
+          club: { select: { id: true, slug: true, name: true } },
           _count: { select: { bookings: true } },
         },
         orderBy: { name: "asc" },
@@ -63,7 +69,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!["DEPARTMENT_OFFICER", "SUPER_ADMIN"].includes(user.role)) {
+    if (!["DEPARTMENT_OFFICER", "LAB_TECH", "CLUB_ADMIN", "CLUB_MANAGER", "SUPER_ADMIN", "ADMIN"].includes(user.role)) {
       return NextResponse.json({ success: false, error: "Insufficient permissions" }, { status: 403 });
     }
 
@@ -77,15 +83,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const data = { ...parsed.data };
+    if (data.departmentId === undefined && ["DEPARTMENT_OFFICER", "LAB_TECH"].includes(user.role) && user.departmentId) {
+      data.departmentId = user.departmentId;
+    }
+    if (data.clubId === undefined && ["CLUB_ADMIN", "CLUB_MANAGER"].includes(user.role) && user.clubId) {
+      data.clubId = user.clubId;
+    }
+
     const resource = await prisma.resource.create({
       data: {
-        ...parsed.data,
-        ownerId: parsed.data.ownerId || user.id,
+        ...data,
+        ownerId: data.ownerId || user.id,
       },
       include: {
         owner: {
           select: { id: true, name: true, email: true, role: true },
         },
+        department: { select: { id: true, slug: true, name: true } },
+        club: { select: { id: true, slug: true, name: true } },
       },
     });
 

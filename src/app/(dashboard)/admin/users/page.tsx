@@ -83,9 +83,14 @@ export default function AdminUsersPage() {
           <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="input-field w-auto">
             <option value="">All Roles</option>
             <option value="STUDENT">Student</option>
+            <option value="PROFESSOR">Professor</option>
             <option value="CLUB_ADMIN">Club Admin</option>
+            <option value="CLUB_MANAGER">Club Manager</option>
             <option value="DEPARTMENT_OFFICER">Department Officer</option>
+            <option value="LAB_TECH">Lab Technician</option>
+            <option value="LHC">LHC</option>
             <option value="SUPER_ADMIN">Super Admin</option>
+            <option value="ADMIN">Admin</option>
           </select>
         </div>
 
@@ -151,9 +156,14 @@ export default function AdminUsersPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">New Role</label>
                 <select value={newRole} onChange={(e) => setNewRole(e.target.value)} className="input-field">
                   <option value="STUDENT">Student</option>
+                  <option value="PROFESSOR">Professor</option>
                   <option value="CLUB_ADMIN">Club Admin</option>
+                  <option value="CLUB_MANAGER">Club Manager</option>
                   <option value="DEPARTMENT_OFFICER">Department Officer</option>
+                  <option value="LAB_TECH">Lab Technician</option>
+                  <option value="LHC">LHC</option>
                   <option value="SUPER_ADMIN">Super Admin</option>
+                  <option value="ADMIN">Admin</option>
                 </select>
               </div>
               <div className="flex justify-end gap-3">

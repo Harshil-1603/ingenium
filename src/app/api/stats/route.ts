@@ -9,7 +9,7 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const isAdmin = ["SUPER_ADMIN", "DEPARTMENT_OFFICER"].includes(user.role);
+    const isAdmin = ["SUPER_ADMIN", "ADMIN", "DEPARTMENT_OFFICER"].includes(user.role);
 
     const bookingWhere = isAdmin ? {} : { userId: user.id };
 

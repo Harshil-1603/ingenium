@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { toast } from "@/components/ui/Toaster";
 import { Plus, DoorOpen, MapPin, Users as UsersIcon, Clock, Search, CalendarPlus } from "lucide-react";
 import Link from "next/link";
+import { canBookRoom } from "@/lib/rbac";
 
 interface Room {
   id: string;
@@ -135,7 +136,8 @@ export default function RoomsPage() {
   }
 
   if (!user) return null;
-  const canCreate = ["DEPARTMENT_OFFICER", "SUPER_ADMIN"].includes(user.role);
+  const canCreate = ["DEPARTMENT_OFFICER", "LAB_TECH", "SUPER_ADMIN", "ADMIN"].includes(user.role);
+  const canBook = canBookRoom({ role: user.role });
 
   return (
     <div>
@@ -188,14 +190,16 @@ export default function RoomsPage() {
                   <Link href={`/calendar?resource=${r.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-700">
                     View Calendar
                   </Link>
-                  <button
-                    type="button"
-                    onClick={() => openBookModal(r)}
-                    className="btn-primary w-full flex items-center justify-center gap-2 py-2 text-sm"
-                  >
-                    <CalendarPlus className="h-4 w-4" />
-                    Book Now
-                  </button>
+                  {canBook && (
+                    <button
+                      type="button"
+                      onClick={() => openBookModal(r)}
+                      className="btn-primary w-full flex items-center justify-center gap-2 py-2 text-sm"
+                    >
+                      <CalendarPlus className="h-4 w-4" />
+                      Book Now
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

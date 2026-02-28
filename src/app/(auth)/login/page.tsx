@@ -22,21 +22,29 @@ export default function LoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
+        credentials: "include",
       });
 
-      const data = await res.json();
+      let data: { success?: boolean; error?: string } = {};
+      try {
+        data = await res.json();
+      } catch {
+        toast("error", "Invalid response from server. Try again.");
+        setLoading(false);
+        return;
+      }
 
       if (data.success) {
         toast("success", "Welcome back!");
-        router.push("/dashboard");
-      } else {
-        toast("error", data.error || "Login failed");
+        setLoading(false);
+        window.location.href = "/dashboard";
+        return;
       }
+      toast("error", data.error || "Login failed");
     } catch {
       toast("error", "Network error. Please try again.");
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   }
 
   return (
