@@ -246,6 +246,66 @@ async function main() {
     });
   }
 
+  // ── Weekly class timetable (4 weeks: current + 3 next) ──
+  const TIMETABLE: { day: number; sH: number; sM: number; eH: number; eM: number; subj: string; room: string }[] = [
+    // Monday
+    { day: 1, sH: 8, sM: 0, eH: 8, eM: 50, subj: "K", room: "seed-lhc-101" },
+    { day: 1, sH: 9, sM: 0, eH: 9, eM: 50, subj: "MoS", room: "seed-lhc-102" },
+    { day: 1, sH: 10, sM: 0, eH: 10, eM: 50, subj: "Fractal (C1)", room: "seed-lhc-103" },
+    { day: 1, sH: 11, sM: 0, eH: 11, eM: 50, subj: "Fluid", room: "seed-lhc-104" },
+    // Tuesday
+    { day: 2, sH: 8, sM: 0, eH: 8, eM: 50, subj: "N", room: "seed-lhc-101" },
+    { day: 2, sH: 9, sM: 0, eH: 9, eM: 50, subj: "MoS", room: "seed-lhc-102" },
+    { day: 2, sH: 10, sM: 0, eH: 10, eM: 50, subj: "DSA", room: "seed-lhc-110" },
+    { day: 2, sH: 11, sM: 0, eH: 11, eM: 50, subj: "SnS", room: "seed-lhc-103" },
+    { day: 2, sH: 13, sM: 0, eH: 14, eM: 50, subj: "Lab Block", room: "seed-lhc-308" },
+    // Wednesday
+    { day: 3, sH: 8, sM: 0, eH: 8, eM: 50, subj: "K", room: "seed-lhc-101" },
+    { day: 3, sH: 9, sM: 0, eH: 9, eM: 50, subj: "DSA", room: "seed-lhc-110" },
+    { day: 3, sH: 10, sM: 0, eH: 10, eM: 50, subj: "Fractal (C1)", room: "seed-lhc-103" },
+    { day: 3, sH: 11, sM: 0, eH: 11, eM: 50, subj: "Fluid", room: "seed-lhc-104" },
+    { day: 3, sH: 13, sM: 0, eH: 14, eM: 50, subj: "DSA (Extended)", room: "seed-lhc-110" },
+    { day: 3, sH: 17, sM: 0, eH: 17, eM: 50, subj: "Slot Activity", room: "seed-lhc-308" },
+    // Thursday
+    { day: 4, sH: 8, sM: 0, eH: 8, eM: 50, subj: "N", room: "seed-lhc-101" },
+    { day: 4, sH: 9, sM: 0, eH: 9, eM: 50, subj: "MoS", room: "seed-lhc-102" },
+    { day: 4, sH: 10, sM: 0, eH: 10, eM: 50, subj: "Fractal (C1)", room: "seed-lhc-103" },
+    { day: 4, sH: 11, sM: 0, eH: 11, eM: 50, subj: "SnS", room: "seed-lhc-104" },
+    // Friday
+    { day: 5, sH: 8, sM: 0, eH: 8, eM: 50, subj: "K", room: "seed-lhc-101" },
+    { day: 5, sH: 9, sM: 0, eH: 9, eM: 50, subj: "DSA", room: "seed-lhc-110" },
+    { day: 5, sH: 10, sM: 0, eH: 10, eM: 50, subj: "Fluid", room: "seed-lhc-104" },
+    { day: 5, sH: 11, sM: 0, eH: 11, eM: 50, subj: "SnS", room: "seed-lhc-103" },
+    { day: 5, sH: 17, sM: 0, eH: 17, eM: 50, subj: "N", room: "seed-lhc-102" },
+  ];
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const curDay = today.getDay();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((curDay + 6) % 7));
+
+  let ttCount = 0;
+  for (let w = 0; w < 4; w++) {
+    const weekMon = new Date(monday);
+    weekMon.setDate(monday.getDate() + w * 7);
+    for (const s of TIMETABLE) {
+      const d = new Date(weekMon);
+      d.setDate(weekMon.getDate() + (s.day - 1));
+      const st = new Date(d); st.setHours(s.sH, s.sM, 0, 0);
+      const et = new Date(d); et.setHours(s.eH, s.eM, 0, 0);
+      const ds = d.toISOString().split("T")[0].replace(/-/g, "");
+      const bid = `tt-${s.room}-${ds}-${s.sH}${String(s.sM).padStart(2, "0")}`;
+      await prisma.booking.upsert({
+        where: { id: bid },
+        update: { title: s.subj, startTime: st, endTime: et, status: "APPROVED" },
+        create: { id: bid, title: s.subj, description: `Scheduled class: ${s.subj}`, resourceId: s.room, userId: lhc.id, startTime: st, endTime: et, status: "APPROVED" },
+      });
+      ttCount++;
+    }
+  }
+  console.log(`Timetable: ${ttCount} class bookings seeded (4 weeks).`);
+
   console.log("Seed completed!");
   console.log("\nDepartments: Electrical (electrical), Bio (bio)");
   console.log("Clubs: Robotics (robotics), Shutterbugs (shutterbugs)");
