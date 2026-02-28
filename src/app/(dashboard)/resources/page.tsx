@@ -204,12 +204,9 @@ export default function ResourcesPage() {
                 </div>
                 {r.owner && <p className="mt-3 text-xs text-gray-400">Managed by {r.owner.name}</p>}
                 <div className="mt-4 flex flex-col gap-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-400">{r._count.bookings} bookings</span>
-                    <Link href={`/calendar?resource=${r.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-700">
-                      View Calendar
-                    </Link>
-                  </div>
+                  <Link href={`/calendar?resource=${r.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-700">
+                    View Calendar
+                  </Link>
                   <button
                     type="button"
                     onClick={() => openBookModal(r)}
