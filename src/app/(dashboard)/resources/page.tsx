@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
 import { Modal } from "@/components/ui/Modal";
@@ -9,7 +9,10 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { toast } from "@/components/ui/Toaster";
 import { getResourceTypeLabel } from "@/lib/utils";
 import { canBookResource } from "@/lib/rbac";
-import { Plus, Box, MapPin, Clock, Search, Tag, CalendarPlus, Building2, Users, Package } from "lucide-react";
+import {
+  Plus, Box, MapPin, Clock, Search, Tag, CalendarPlus,
+  Building2, Users, Package, ChevronDown, ChevronRight,
+} from "lucide-react";
 import Link from "next/link";
 
 interface Resource {
@@ -32,28 +35,27 @@ interface Resource {
   _count: { bookings: number };
 }
 
+interface GroupSection {
+  key: string;
+  label: string;
+  icon: "department" | "club" | "general";
+  resources: Resource[];
+}
+
 export default function ResourcesPage() {
   const { user } = useAuth();
   const [resources, setResources] = useState<Resource[]>([]);
-  const [departments, setDepartments] = useState<{ id: string; slug: string; name: string }[]>([]);
-  const [clubs, setClubs] = useState<{ id: string; slug: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
-  const [sectionFilter, setSectionFilter] = useState<"all" | "club" | "department">("all");
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [createModal, setCreateModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [bookingModal, setBookingModal] = useState(false);
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [bookingForm, setBookingForm] = useState({
-    title: "",
-    description: "",
-    resourceId: "",
-    resourceName: "",
-    startDate: "",
-    startTime: "09:00",
-    endDate: "",
-    endTime: "10:00",
+    title: "", description: "", resourceId: "", resourceName: "",
+    startDate: "", startTime: "09:00", endDate: "", endTime: "10:00",
   });
   const [form, setForm] = useState({
     name: "", type: "EQUIPMENT" as string, description: "", location: "",
@@ -67,26 +69,60 @@ export default function ResourcesPage() {
     try {
       const params = new URLSearchParams({ pageSize: "50" });
       if (search) params.set("search", search);
-      const filterType = typeFilter || "";
-      const [resRes, deptRes, clubRes] = await Promise.all([
-        fetch(`/api/resources?${params}`),
-        fetch("/api/departments"),
-        fetch("/api/clubs"),
-      ]);
-      const resData = await resRes.json();
-      const deptData = await deptRes.json();
-      const clubData = await clubRes.json();
+      const res = await fetch(`/api/resources?${params}`);
+      const resData = await res.json();
       if (resData.success) {
         let filtered = resData.data.filter((r: Resource) => r.type === "EQUIPMENT" || r.type === "ASSET");
-        if (filterType) filtered = filtered.filter((r: Resource) => r.type === filterType);
+        if (typeFilter) filtered = filtered.filter((r: Resource) => r.type === typeFilter);
         if (user?.role === "PROFESSOR") {
           filtered = filtered.filter((r: Resource) => r.departmentId != null);
         }
         setResources(filtered);
       }
-      if (deptData.success) setDepartments(deptData.data);
-      if (clubData.success) setClubs(clubData.data);
     } catch {} finally { setLoading(false); }
+  }
+
+  const grouped = useMemo<GroupSection[]>(() => {
+    const deptMap = new Map<string, { label: string; resources: Resource[] }>();
+    const clubMap = new Map<string, { label: string; resources: Resource[] }>();
+    const ungrouped: Resource[] = [];
+
+    for (const r of resources) {
+      if (r.department) {
+        const existing = deptMap.get(r.department.id);
+        if (existing) existing.resources.push(r);
+        else deptMap.set(r.department.id, { label: r.department.name, resources: [r] });
+      } else if (r.club) {
+        const existing = clubMap.get(r.club.id);
+        if (existing) existing.resources.push(r);
+        else clubMap.set(r.club.id, { label: r.club.name, resources: [r] });
+      } else {
+        ungrouped.push(r);
+      }
+    }
+
+    const sections: GroupSection[] = [];
+
+    for (const [id, val] of deptMap) {
+      sections.push({ key: `dept-${id}`, label: val.label, icon: "department", resources: val.resources });
+    }
+    for (const [id, val] of clubMap) {
+      sections.push({ key: `club-${id}`, label: val.label, icon: "club", resources: val.resources });
+    }
+    if (ungrouped.length > 0) {
+      sections.push({ key: "general", label: "General Resources", icon: "general", resources: ungrouped });
+    }
+
+    return sections;
+  }, [resources]);
+
+  function toggleSection(key: string) {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -118,14 +154,8 @@ export default function ResourcesPage() {
   function openBookModal(resource: Resource) {
     const today = new Date().toISOString().split("T")[0];
     setBookingForm({
-      title: "",
-      description: "",
-      resourceId: resource.id,
-      resourceName: resource.name,
-      startDate: today,
-      startTime: "09:00",
-      endDate: today,
-      endTime: "10:00",
+      title: "", description: "", resourceId: resource.id, resourceName: resource.name,
+      startDate: today, startTime: "09:00", endDate: today, endTime: "10:00",
     });
     setBookingModal(true);
   }
@@ -134,8 +164,6 @@ export default function ResourcesPage() {
     e.preventDefault();
     setBookingSubmitting(true);
     try {
-      const startTime = new Date(`${bookingForm.startDate}T${bookingForm.startTime}:00`);
-      const endTime = new Date(`${bookingForm.endDate}T${bookingForm.endTime}:00`);
       const res = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -143,8 +171,8 @@ export default function ResourcesPage() {
           title: bookingForm.title,
           description: bookingForm.description || undefined,
           resourceId: bookingForm.resourceId,
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
+          startTime: `${bookingForm.startDate}T${bookingForm.startTime}:00`,
+          endTime: `${bookingForm.endDate}T${bookingForm.endTime}:00`,
         }),
       });
       const data = await res.json();
@@ -165,12 +193,31 @@ export default function ResourcesPage() {
   if (!user) return null;
   const canCreate = ["DEPARTMENT_OFFICER", "LAB_TECH", "SUPER_ADMIN", "ADMIN", "CLUB_ADMIN", "CLUB_MANAGER"].includes(user.role);
 
+  const sectionIcon = (type: GroupSection["icon"]) => {
+    switch (type) {
+      case "department": return <Building2 className="h-5 w-5 text-blue-500" />;
+      case "club": return <Users className="h-5 w-5 text-purple-500" />;
+      default: return <Box className="h-5 w-5 text-gray-500" />;
+    }
+  };
+
+  const sectionBadgeColor = (type: GroupSection["icon"]) => {
+    switch (type) {
+      case "department": return "bg-blue-50 text-blue-700 border-blue-200";
+      case "club": return "bg-purple-50 text-purple-700 border-purple-200";
+      default: return "bg-gray-50 text-gray-600 border-gray-200";
+    }
+  };
+
   return (
     <div>
       <Header user={user} title="Resource Directory" />
       <div className="p-6">
-        <p className="text-sm text-gray-500 mb-6">Equipment, tools, and shared assets available for booking.</p>
+        <p className="text-sm text-gray-500 mb-6">
+          Equipment, tools, and shared assets organized by department and club.
+        </p>
 
+        {/* Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -186,11 +233,6 @@ export default function ResourcesPage() {
               <option value="EQUIPMENT">Equipment</option>
               <option value="ASSET">Asset</option>
             </select>
-            <select value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value as "all" | "club" | "department")} className="input-field w-auto max-w-[140px]">
-              <option value="all">All</option>
-              <option value="department">By Department</option>
-              {user.role !== "PROFESSOR" && <option value="club">By Club</option>}
-            </select>
           </div>
           {canCreate && (
             <button onClick={() => setCreateModal(true)} className="btn-primary">
@@ -199,153 +241,80 @@ export default function ResourcesPage() {
           )}
         </div>
 
+        {/* Summary chips */}
+        {!loading && grouped.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mb-6">
+            {grouped.map((section) => (
+              <button
+                key={section.key}
+                onClick={() => {
+                  const el = document.getElementById(section.key);
+                  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors hover:shadow-sm ${sectionBadgeColor(section.icon)}`}
+              >
+                {sectionIcon(section.icon)}
+                {section.label}
+                <span className="ml-1 opacity-60">({section.resources.length})</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Content */}
         {loading ? <LoadingSpinner /> : resources.length === 0 ? (
           <EmptyState
             title="No resources found"
             description={canCreate ? "Add equipment or assets for others to book." : "No equipment or assets are available yet."}
             icon={<Box className="h-8 w-8 text-gray-400" />}
           />
-        ) : sectionFilter === "all" ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {resources.map((r) => (
-              <div key={r.id} className="card hover:shadow-md transition-shadow flex flex-col">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{r.name}</h3>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Tag className="h-3 w-3 text-gray-400" />
-                      <span className="badge bg-indigo-50 text-indigo-700">{getResourceTypeLabel(r.type)}</span>
-                    </div>
-                  </div>
-                  <span className={`badge ${r.requiresApproval ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"}`}>
-                    {r.requiresApproval ? "Needs Approval" : "Auto-approve"}
-                  </span>
-                </div>
-                <div className="flex-1">
-                  {r.description && <p className="text-sm text-gray-500 mb-3">{r.description}</p>}
-                  <div className="space-y-1.5 text-sm text-gray-600">
-                    {r.department && (
-                      <div className="flex items-center gap-2">{r.department.name}</div>
-                    )}
-                    {r.club && (
-                      <div className="flex items-center gap-2">{r.club.name}</div>
-                    )}
-                    {r.location && (
-                      <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-gray-400" />{r.location}</div>
-                    )}
-                    <div className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-gray-400" />{r.availableFrom} — {r.availableTo}</div>
-                    <div className="flex items-center gap-2"><Package className="h-3.5 w-3.5 text-gray-400" />Total units: <span className="font-semibold text-gray-900">{r.maxCount}</span></div>
-                  </div>
-                  {r.owner && <p className="mt-3 text-xs text-gray-400">Managed by {r.owner.name}</p>}
-                </div>
-                <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-2">
-                  <Link href={`/calendar?resource=${r.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-700">
-                    View Calendar
-                  </Link>
-                  {canBookResource(
-                    { role: user.role, departmentId: (user as { departmentId?: string }).departmentId ?? null, clubId: (user as { clubId?: string }).clubId ?? null },
-                    { type: r.type, departmentId: r.departmentId ?? null, clubId: r.clubId ?? null }
-                  ) && (
-                    <button
-                      type="button"
-                      onClick={() => openBookModal(r)}
-                      className="btn-primary w-full flex items-center justify-center gap-2 py-2 text-sm"
-                    >
-                      <CalendarPlus className="h-4 w-4" />
-                      Book Now
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
         ) : (
-          <div className="space-y-8">
-            {sectionFilter === "department" && departments.map((dept) => {
-              const list = resources.filter((r) => r.departmentId === dept.id);
-              if (list.length === 0) return null;
+          <div className="space-y-6">
+            {grouped.map((section) => {
+              const isCollapsed = collapsedSections.has(section.key);
               return (
-                <div key={dept.id}>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <Building2 className="h-5 w-5 text-gray-500" /> {dept.name}
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {list.map((r) => (
-                      <div key={r.id} className="card hover:shadow-md transition-shadow flex flex-col">
-                        <div className="flex items-start justify-between mb-3">
-                          <h3 className="font-semibold text-gray-900">{r.name}</h3>
-                          <span className={`badge ${r.requiresApproval ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"}`}>{r.requiresApproval ? "Needs Approval" : "Auto-approve"}</span>
-                        </div>
-                        <div className="flex-1">
-                          {r.description && <p className="text-sm text-gray-500 mb-3">{r.description}</p>}
-                          <div className="space-y-1.5 text-sm text-gray-600">
-                            {r.club && (
-                              <div className="flex items-center gap-2">{r.club.name}</div>
-                            )}
-                            {r.location && (
-                              <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-gray-400" />{r.location}</div>
-                            )}
-                            <div className="flex items-center gap-2"><Package className="h-3.5 w-3.5 text-gray-400" />Total units: <span className="font-semibold text-gray-900">{r.maxCount}</span></div>
-                          </div>
-                        </div>
-                        <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-2">
-                          <Link href={`/calendar?resource=${r.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-700">View Calendar</Link>
-                          {canBookResource(
-                            { role: user.role, departmentId: (user as { departmentId?: string }).departmentId ?? null, clubId: (user as { clubId?: string }).clubId ?? null },
-                            { type: r.type, departmentId: r.departmentId ?? null, clubId: r.clubId ?? null }
-                          ) && (
-                            <button type="button" onClick={() => openBookModal(r)} className="btn-primary w-full flex items-center justify-center gap-2 py-2 text-sm">
-                              <CalendarPlus className="h-4 w-4" /> Book Now
-                            </button>
-                          )}
-                        </div>
+                <div key={section.key} id={section.key} className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+                  {/* Section header */}
+                  <button
+                    onClick={() => toggleSection(section.key)}
+                    className="w-full flex items-center gap-3 px-5 py-4 hover:bg-gray-50 transition-colors"
+                  >
+                    {isCollapsed
+                      ? <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
+                      : <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
+                    }
+                    {sectionIcon(section.icon)}
+                    <div className="flex-1 text-left">
+                      <h2 className="text-base font-semibold text-gray-900">{section.label}</h2>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {section.resources.length} resource{section.resources.length !== 1 ? "s" : ""}
+                        {" · "}
+                        {section.resources.filter((r) => r.type === "EQUIPMENT").length} equipment
+                        {section.resources.some((r) => r.type === "ASSET")
+                          ? `, ${section.resources.filter((r) => r.type === "ASSET").length} asset${section.resources.filter((r) => r.type === "ASSET").length !== 1 ? "s" : ""}`
+                          : ""}
+                      </p>
+                    </div>
+                    <span className={`badge border text-xs ${sectionBadgeColor(section.icon)}`}>
+                      {section.icon === "department" ? "Department" : section.icon === "club" ? "Club" : "General"}
+                    </span>
+                  </button>
+
+                  {/* Section body */}
+                  {!isCollapsed && (
+                    <div className="border-t border-gray-100 px-5 py-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {section.resources.map((r) => (
+                          <ResourceCard
+                            key={r.id}
+                            resource={r}
+                            user={user}
+                            onBook={() => openBookModal(r)}
+                          />
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-            {sectionFilter === "club" && clubs.map((club) => {
-              const list = resources.filter((r) => r.clubId === club.id);
-              if (list.length === 0) return null;
-              return (
-                <div key={club.id}>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <Users className="h-5 w-5 text-gray-500" /> {club.name}
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {list.map((r) => (
-                      <div key={r.id} className="card hover:shadow-md transition-shadow flex flex-col">
-                        <div className="flex items-start justify-between mb-3">
-                          <h3 className="font-semibold text-gray-900">{r.name}</h3>
-                          <span className={`badge ${r.requiresApproval ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"}`}>{r.requiresApproval ? "Needs Approval" : "Auto-approve"}</span>
-                        </div>
-                        <div className="flex-1">
-                          {r.description && <p className="text-sm text-gray-500 mb-3">{r.description}</p>}
-                          <div className="space-y-1.5 text-sm text-gray-600">
-                            {r.department && (
-                              <div className="flex items-center gap-2">{r.department.name}</div>
-                            )}
-                            {r.location && (
-                              <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-gray-400" />{r.location}</div>
-                            )}
-                            <div className="flex items-center gap-2"><Package className="h-3.5 w-3.5 text-gray-400" />Total units: <span className="font-semibold text-gray-900">{r.maxCount}</span></div>
-                          </div>
-                        </div>
-                        <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-2">
-                          <Link href={`/calendar?resource=${r.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-700">View Calendar</Link>
-                          {canBookResource(
-                            { role: user.role, departmentId: (user as { departmentId?: string }).departmentId ?? null, clubId: (user as { clubId?: string }).clubId ?? null },
-                            { type: r.type, departmentId: r.departmentId ?? null, clubId: r.clubId ?? null }
-                          ) && (
-                            <button type="button" onClick={() => openBookModal(r)} className="btn-primary w-full flex items-center justify-center gap-2 py-2 text-sm">
-                              <CalendarPlus className="h-4 w-4" /> Book Now
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -358,12 +327,9 @@ export default function ResourcesPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
               <input
-                type="text"
-                required
-                value={bookingForm.title}
+                type="text" required value={bookingForm.title}
                 onChange={(e) => setBookingForm({ ...bookingForm, title: e.target.value })}
-                className="input-field"
-                placeholder="Meeting, Event..."
+                className="input-field" placeholder="Meeting, Event..."
               />
             </div>
             <div>
@@ -371,49 +337,34 @@ export default function ResourcesPage() {
               <textarea
                 value={bookingForm.description}
                 onChange={(e) => setBookingForm({ ...bookingForm, description: e.target.value })}
-                className="input-field"
-                rows={2}
-                placeholder="Optional"
+                className="input-field" rows={2} placeholder="Optional"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                <input
-                  type="date"
-                  required
-                  value={bookingForm.startDate}
+                <input type="date" required value={bookingForm.startDate}
                   onChange={(e) => setBookingForm({ ...bookingForm, startDate: e.target.value })}
                   className="input-field"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
-                <input
-                  type="time"
-                  required
-                  value={bookingForm.startTime}
+                <input type="time" required value={bookingForm.startTime}
                   onChange={(e) => setBookingForm({ ...bookingForm, startTime: e.target.value })}
                   className="input-field"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                <input
-                  type="date"
-                  required
-                  value={bookingForm.endDate}
-                  min={bookingForm.startDate}
+                <input type="date" required value={bookingForm.endDate} min={bookingForm.startDate}
                   onChange={(e) => setBookingForm({ ...bookingForm, endDate: e.target.value })}
                   className="input-field"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
-                <input
-                  type="time"
-                  required
-                  value={bookingForm.endTime}
+                <input type="time" required value={bookingForm.endTime}
                   onChange={(e) => setBookingForm({ ...bookingForm, endTime: e.target.value })}
                   className="input-field"
                 />
@@ -428,6 +379,7 @@ export default function ResourcesPage() {
           </form>
         </Modal>
 
+        {/* Create resource modal */}
         {canCreate && (
           <Modal open={createModal} onClose={() => setCreateModal(false)} title="Add New Resource" maxWidth="max-w-xl">
             <form onSubmit={handleCreate} className="space-y-4">
@@ -470,6 +422,67 @@ export default function ResourcesPage() {
               </div>
             </form>
           </Modal>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ResourceCard({ resource: r, user, onBook }: { resource: Resource; user: { role: string; departmentId?: string; clubId?: string }; onBook: () => void }) {
+  const showBook = canBookResource(
+    { role: user.role, departmentId: user.departmentId ?? null, clubId: user.clubId ?? null },
+    { type: r.type, departmentId: r.departmentId ?? null, clubId: r.clubId ?? null }
+  );
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-gray-50/50 hover:bg-white hover:shadow-md transition-all p-4 flex flex-col">
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-gray-900 truncate">{r.name}</h3>
+          <span className={`inline-flex items-center gap-1 mt-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${r.type === "EQUIPMENT" ? "bg-indigo-50 text-indigo-700" : "bg-teal-50 text-teal-700"}`}>
+            <Tag className="h-2.5 w-2.5" />
+            {getResourceTypeLabel(r.type)}
+          </span>
+        </div>
+        <span className={`shrink-0 ml-2 text-[10px] font-semibold px-2 py-1 rounded-md ${r.requiresApproval ? "bg-amber-50 text-amber-700 border border-amber-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}`}>
+          {r.requiresApproval ? "Approval Required" : "Auto-approve"}
+        </span>
+      </div>
+
+      {r.description && <p className="text-xs text-gray-500 mb-3 line-clamp-2">{r.description}</p>}
+
+      <div className="flex-1 space-y-1.5 text-xs text-gray-600">
+        {r.location && (
+          <div className="flex items-center gap-1.5">
+            <MapPin className="h-3 w-3 text-gray-400 shrink-0" />
+            <span className="truncate">{r.location}</span>
+          </div>
+        )}
+        <div className="flex items-center gap-1.5">
+          <Clock className="h-3 w-3 text-gray-400 shrink-0" />
+          <span>{r.availableFrom} — {r.availableTo}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Package className="h-3 w-3 text-gray-400 shrink-0" />
+          <span>Units: <span className="font-semibold text-gray-900">{r.maxCount}</span></span>
+        </div>
+      </div>
+
+      {r.owner && <p className="mt-2 text-[10px] text-gray-400">Managed by {r.owner.name}</p>}
+
+      <div className="mt-3 pt-3 border-t border-gray-200 flex items-center gap-2">
+        <Link href={`/calendar?resource=${r.id}`} className="text-xs font-medium text-brand-600 hover:text-brand-700 hover:underline">
+          View Calendar
+        </Link>
+        {showBook && (
+          <button
+            type="button"
+            onClick={onBook}
+            className="ml-auto inline-flex items-center gap-1.5 bg-brand-600 text-white text-xs font-medium px-3 py-1.5 rounded-md hover:bg-brand-700 transition-colors"
+          >
+            <CalendarPlus className="h-3.5 w-3.5" />
+            Book
+          </button>
         )}
       </div>
     </div>
