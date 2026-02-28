@@ -9,6 +9,7 @@ import {
   BookOpen,
   Box,
   PackageSearch,
+  BarChart3,
   ClipboardCheck,
   ScrollText,
   Users,
@@ -27,9 +28,9 @@ interface NavSection {
   items: { name: string; href: string; icon: React.ElementType; roles: string[] }[];
 }
 
-const CAN_BOOK_ROOMS = ["PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "DEPARTMENT_OFFICER", "LAB_TECH", "SUPER_ADMIN", "ADMIN"];
-const CAN_VIEW_ROOMS = [...CAN_BOOK_ROOMS, "STUDENT"];
-const CAN_USE_RESOURCES = ["STUDENT", "PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "DEPARTMENT_OFFICER", "LAB_TECH", "SUPER_ADMIN", "ADMIN"];
+const CAN_BOOK_ROOMS = ["PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "SUPER_ADMIN", "ADMIN"];
+const CAN_USE_RESOURCES = ["STUDENT", "PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "SUPER_ADMIN", "ADMIN"];
+const DEPT_ROLES = ["DEPARTMENT_OFFICER", "LAB_TECH"];
 const ALL_ROLES = ["STUDENT", "PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "DEPARTMENT_OFFICER", "LAB_TECH", "LHC", "SUPER_ADMIN", "ADMIN"];
 
 const sections: NavSection[] = [
@@ -54,10 +55,16 @@ const sections: NavSection[] = [
     ],
   },
   {
+    label: "Department",
+    items: [
+      { name: "Resource Monitoring", href: "/resource-monitoring", icon: BarChart3, roles: DEPT_ROLES },
+    ],
+  },
+  {
     label: "Administration",
     items: [
       { name: "Approvals", href: "/approvals", icon: ClipboardCheck, roles: ["CLUB_ADMIN", "CLUB_MANAGER", "DEPARTMENT_OFFICER", "LAB_TECH", "LHC", "SUPER_ADMIN", "ADMIN"] },
-      { name: "Audit Logs", href: "/audit", icon: ScrollText, roles: ["DEPARTMENT_OFFICER", "LAB_TECH", "LHC", "SUPER_ADMIN", "ADMIN"] },
+      { name: "Audit Logs", href: "/audit", icon: ScrollText, roles: ["SUPER_ADMIN", "ADMIN"] },
       { name: "Manage Users", href: "/admin/users", icon: Users, roles: ["SUPER_ADMIN", "ADMIN"] },
     ],
   },
