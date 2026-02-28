@@ -29,11 +29,21 @@ async function main() {
     create: { slug: "shutterbugs", name: "Shutterbugs" },
   });
 
+  // ── Migrate old emails → new emails (preserves all linked data) ──
+  await prisma.user.updateMany({ where: { email: "admin@campusgrid.edu" },      data: { email: "admin@iitj.ac.in" } });
+  await prisma.user.updateMany({ where: { email: "lhc@campusgrid.edu" },        data: { email: "lhc@iitj.ac.in" } });
+  await prisma.user.updateMany({ where: { email: "professor@campusgrid.edu" },  data: { email: "jane.doe@iitj.ac.in" } });
+  await prisma.user.updateMany({ where: { email: "officer@campusgrid.edu" },    data: { email: "electriclab@iitj.ac.in" } });
+  await prisma.user.updateMany({ where: { email: "bio-officer@campusgrid.edu" },data: { email: "biolab@iitj.ac.in" } });
+  await prisma.user.updateMany({ where: { email: "clubadmin@campusgrid.edu" },  data: { email: "robotics@iitj.ac.in" } });
+  await prisma.user.updateMany({ where: { email: "shutterbugs@campusgrid.edu" },data: { email: "shutterbugs@iitj.ac.in" } });
+  await prisma.user.updateMany({ where: { email: "student@campusgrid.edu" },    data: { email: "alex.johnson@iitj.ac.in" } });
+
   const admin = await prisma.user.upsert({
-    where: { email: "admin@campusgrid.edu" },
-    update: {},
+    where: { email: "admin@iitj.ac.in" },
+    update: { name: "Super Admin" },
     create: {
-      email: "admin@campusgrid.edu",
+      email: "admin@iitj.ac.in",
       password,
       name: "Super Admin",
       role: "ADMIN",
@@ -42,10 +52,10 @@ async function main() {
   });
 
   const lhc = await prisma.user.upsert({
-    where: { email: "lhc@campusgrid.edu" },
-    update: {},
+    where: { email: "lhc@iitj.ac.in" },
+    update: { name: "LHC Manager" },
     create: {
-      email: "lhc@campusgrid.edu",
+      email: "lhc@iitj.ac.in",
       password,
       name: "LHC Manager",
       role: "LHC",
@@ -54,10 +64,10 @@ async function main() {
   });
 
   const professor = await prisma.user.upsert({
-    where: { email: "professor@campusgrid.edu" },
-    update: { departmentId: deptElectrical.id, department: "Electrical" },
+    where: { email: "jane.doe@iitj.ac.in" },
+    update: { name: "Dr. Jane Doe", departmentId: deptElectrical.id, department: "Electrical" },
     create: {
-      email: "professor@campusgrid.edu",
+      email: "jane.doe@iitj.ac.in",
       password,
       name: "Dr. Jane Doe",
       role: "PROFESSOR",
@@ -67,12 +77,12 @@ async function main() {
   });
 
   const deptOfficer = await prisma.user.upsert({
-    where: { email: "officer@campusgrid.edu" },
-    update: { departmentId: deptElectrical.id, department: "Electrical", role: "LAB_TECH" },
+    where: { email: "electriclab@iitj.ac.in" },
+    update: { name: "Lab Technician (Electrical)", departmentId: deptElectrical.id, department: "Electrical", role: "LAB_TECH" },
     create: {
-      email: "officer@campusgrid.edu",
+      email: "electriclab@iitj.ac.in",
       password,
-      name: "Dr. Smith",
+      name: "Lab Technician (Electrical)",
       role: "LAB_TECH",
       department: "Electrical",
       departmentId: deptElectrical.id,
@@ -80,12 +90,12 @@ async function main() {
   });
 
   const clubAdmin = await prisma.user.upsert({
-    where: { email: "clubadmin@campusgrid.edu" },
-    update: { clubId: clubRobotics.id, department: "Robotics Club" },
+    where: { email: "robotics@iitj.ac.in" },
+    update: { name: "Robotics", clubId: clubRobotics.id, department: "Robotics Club" },
     create: {
-      email: "clubadmin@campusgrid.edu",
+      email: "robotics@iitj.ac.in",
       password,
-      name: "Jane Wilson",
+      name: "Robotics",
       role: "CLUB_ADMIN",
       department: "Robotics Club",
       clubId: clubRobotics.id,
@@ -93,12 +103,12 @@ async function main() {
   });
 
   const clubShutterbugsManager = await prisma.user.upsert({
-    where: { email: "shutterbugs@campusgrid.edu" },
-    update: { clubId: clubShutterbugs.id },
+    where: { email: "shutterbugs@iitj.ac.in" },
+    update: { name: "Shutterbugs", clubId: clubShutterbugs.id, department: "Shutterbugs Club" },
     create: {
-      email: "shutterbugs@campusgrid.edu",
+      email: "shutterbugs@iitj.ac.in",
       password,
-      name: "Sam Photo",
+      name: "Shutterbugs",
       role: "CLUB_MANAGER",
       department: "Shutterbugs Club",
       clubId: clubShutterbugs.id,
@@ -106,10 +116,10 @@ async function main() {
   });
 
   const student = await prisma.user.upsert({
-    where: { email: "student@campusgrid.edu" },
-    update: {},
+    where: { email: "alex.johnson@iitj.ac.in" },
+    update: { name: "Alex Johnson" },
     create: {
-      email: "student@campusgrid.edu",
+      email: "alex.johnson@iitj.ac.in",
       password,
       name: "Alex Johnson",
       role: "STUDENT",
@@ -191,12 +201,12 @@ async function main() {
   ];
 
   const deptBioOfficer = await prisma.user.upsert({
-    where: { email: "bio-officer@campusgrid.edu" },
-    update: { departmentId: deptBio.id },
+    where: { email: "biolab@iitj.ac.in" },
+    update: { name: "Lab Technician (Bio)", departmentId: deptBio.id },
     create: {
-      email: "bio-officer@campusgrid.edu",
+      email: "biolab@iitj.ac.in",
       password,
-      name: "Dr. Bio Officer",
+      name: "Lab Technician (Bio)",
       role: "LAB_TECH",
       department: "Bio",
       departmentId: deptBio.id,
@@ -310,14 +320,14 @@ async function main() {
   console.log("\nDepartments: Electrical (electrical), Bio (bio)");
   console.log("Clubs: Robotics (robotics), Shutterbugs (shutterbugs)");
   console.log("\nTest accounts (all passwords: password123):");
-  console.log("  Admin:               admin@campusgrid.edu");
-  console.log("  LHC (room approval): lhc@campusgrid.edu");
-  console.log("  Professor (Electrical): professor@campusgrid.edu");
-  console.log("  Dept Officer (Electrical): officer@campusgrid.edu");
-  console.log("  Bio Lab Tech:        bio-officer@campusgrid.edu");
-  console.log("  Club Admin (Robotics): clubadmin@campusgrid.edu");
-  console.log("  Club Manager (Shutterbugs): shutterbugs@campusgrid.edu");
-  console.log("  Student:             student@campusgrid.edu");
+  console.log("  Admin:                        admin@iitj.ac.in");
+  console.log("  LHC (room approval):          lhc@iitj.ac.in");
+  console.log("  Professor (Electrical):       jane.doe@iitj.ac.in");
+  console.log("  Lab Tech (Electrical):        electriclab@iitj.ac.in");
+  console.log("  Lab Tech (Bio):               biolab@iitj.ac.in");
+  console.log("  Club Admin (Robotics):        robotics@iitj.ac.in");
+  console.log("  Club Manager (Shutterbugs):   shutterbugs@iitj.ac.in");
+  console.log("  Student:                      alex.johnson@iitj.ac.in");
 }
 
 main()
