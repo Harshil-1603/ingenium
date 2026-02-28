@@ -71,14 +71,13 @@ export default function RoomBookingsPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const startTime = new Date(`${form.date}T${form.startHour}:00:00`);
-      const endTime = new Date(`${form.date}T${form.endHour}:00:00`);
       const res = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: form.title, description: form.description, resourceId: form.resourceId,
-          startTime: startTime.toISOString(), endTime: endTime.toISOString(),
+          startTime: `${form.date}T${form.startHour}:00:00`,
+          endTime: `${form.date}T${form.endHour}:00:00`,
         }),
       });
       const data = await res.json();

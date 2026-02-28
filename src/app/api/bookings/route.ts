@@ -98,8 +98,19 @@ export async function POST(request: NextRequest) {
     }
 
     const { title, description, resourceId, startTime, endTime } = parsed.data;
-    const start = new Date(startTime);
-    const end = new Date(endTime);
+
+    // Parse local-time datetime strings (no UTC conversion) so day-of-week validation is correct
+    const parseLocal = (s: string) => {
+      if (s.includes("Z") || /[+-]\d{2}:\d{2}$/.test(s)) return new Date(s);
+      const [datePart, timePart] = s.split("T");
+      const [y, mo, d] = datePart.split("-").map(Number);
+      if (!timePart) return new Date(y, mo - 1, d, 0, 0, 0);
+      const [h, mi, sec] = timePart.split(":").map(Number);
+      return new Date(y, mo - 1, d, h, mi, sec ?? 0);
+    };
+
+    const start = parseLocal(startTime);
+    const end = parseLocal(endTime);
 
     if (start >= end) {
       return NextResponse.json(
@@ -150,10 +161,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const dayOfWeek = start.getDay();
-    if (!resource.availableDays.includes(dayOfWeek)) {
+    // Use the local date extracted from the ISO string to avoid UTC timezone day-shift
+    const localDateStr = startTime.includes("T") ? startTime.split("T")[0] : startTime;
+    const [y, m, d] = localDateStr.split("-").map(Number);
+    const dayOfWeek = new Date(y, m - 1, d).getDay();
+    if (resource.availableDays.length > 0 && !resource.availableDays.includes(dayOfWeek)) {
+      const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const allowed = resource.availableDays.map((d: number) => dayNames[d]).join(", ");
       return NextResponse.json(
-        { success: false, error: "Resource is not available on this day" },
+        { success: false, error: `This resource is only available on: ${allowed}` },
         { status: 400 }
       );
     }

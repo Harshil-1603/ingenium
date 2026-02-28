@@ -144,7 +144,7 @@ async function main() {
         maxBookingHours: item.maxBookingHours,
         availableFrom: "08:00",
         availableTo: "22:00",
-        availableDays: [1, 2, 3, 4, 5],
+        availableDays: [0, 1, 2, 3, 4, 5, 6],
       },
     });
   }

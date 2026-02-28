@@ -60,10 +60,9 @@ export function DailyCalendar({ date, onEmptySlotClick, onSlotClick, refreshKey,
   async function fetchCalendar() {
     setLoading(true);
     try {
-      const dayStart = new Date(`${date}T00:00:00`);
-      const dayEnd = new Date(`${date}T23:59:59.999`);
+      // Send local-time date bounds as plain ISO strings (no UTC conversion) to avoid day-shift
       const res = await fetch(
-        `/api/calendar/daily?start=${dayStart.toISOString()}&end=${dayEnd.toISOString()}&t=${Date.now()}`
+        `/api/calendar/daily?start=${date}T00:00:00&end=${date}T23:59:59.999&t=${Date.now()}`
       );
       const data = await res.json();
       if (data.success) {
@@ -251,29 +250,37 @@ export function DailyCalendar({ date, onEmptySlotClick, onSlotClick, refreshKey,
                     ))}
 
                     {/* Merged booking blocks positioned absolutely */}
-                    {blocks.map((block) => (
-                      <div
-                        key={block.key}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSlotClick?.({
-                            id: block.ids[0],
-                            title: block.title,
-                            startTime: block.startTime.toISOString(),
-                            endTime: block.endTime.toISOString(),
-                            status: block.status,
-                            resourceId: block.resourceId,
-                            userId: block.userId,
-                            userName: block.userName,
-                          });
-                        }}
-                        className={`absolute left-0.5 right-0.5 rounded-md px-2 py-1 text-[11px] leading-tight cursor-pointer overflow-hidden z-[5] flex flex-col justify-center ${getStatusColor(block.status)}`}
-                        style={getBlockStyle(block)}
-                      >
-                        <div className="font-medium truncate">{block.title}</div>
-                        <div className="truncate opacity-75">{block.userName}</div>
-                      </div>
-                    ))}
+                    {blocks.map((block) => {
+                      const startLabel = `${block.startTime.getHours().toString().padStart(2, "0")}:${block.startTime.getMinutes().toString().padStart(2, "0")}`;
+                      const endLabel = `${block.endTime.getHours().toString().padStart(2, "0")}:${block.endTime.getMinutes().toString().padStart(2, "0")}`;
+                      const durationH = (block.endTime.getTime() - block.startTime.getTime()) / 3_600_000;
+                      const isTall = durationH >= 1.5;
+                      return (
+                        <div
+                          key={block.key}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSlotClick?.({
+                              id: block.ids[0],
+                              title: block.title,
+                              startTime: block.startTime.toISOString(),
+                              endTime: block.endTime.toISOString(),
+                              status: block.status,
+                              resourceId: block.resourceId,
+                              userId: block.userId,
+                              userName: block.userName,
+                            });
+                          }}
+                          title={`${block.title} — ${block.userName} (${startLabel}–${endLabel})`}
+                          className={`absolute left-0.5 right-0.5 rounded-md px-2 py-1 text-[11px] leading-tight cursor-pointer overflow-hidden z-[5] flex flex-col justify-start border ${getStatusColor(block.status)}`}
+                          style={getBlockStyle(block)}
+                        >
+                          <div className="font-semibold truncate">{block.title}</div>
+                          <div className="font-medium opacity-90">{startLabel}–{endLabel}</div>
+                          {isTall && <div className="truncate opacity-70 text-[10px]">{block.userName}</div>}
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}

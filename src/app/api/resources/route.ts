@@ -23,7 +23,10 @@ export async function GET(request: NextRequest) {
     const where: Record<string, unknown> = { isActive: true };
     if (type) where.type = type;
     if (user.role === "PROFESSOR") {
-      where.departmentId = { not: null };
+      // Professors can see rooms (type=ROOM) freely, but equipment is filtered to dept resources only
+      if (!type || type !== "ROOM") {
+        where.departmentId = { not: null };
+      }
     } else {
       if (departmentId) where.departmentId = departmentId;
       if (clubId) where.clubId = clubId;

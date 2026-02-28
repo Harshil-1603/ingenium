@@ -47,9 +47,6 @@ export default function CalendarPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const startTime = new Date(`${bookingForm.date}T${bookingForm.startHour}:00:00`);
-      const endTime = new Date(`${bookingForm.date}T${bookingForm.endHour}:00:00`);
-
       const res = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -57,8 +54,8 @@ export default function CalendarPage() {
           title: bookingForm.title,
           description: bookingForm.description,
           resourceId: bookingForm.resourceId,
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
+          startTime: `${bookingForm.date}T${bookingForm.startHour}:00:00`,
+          endTime: `${bookingForm.date}T${bookingForm.endHour}:00:00`,
         }),
       });
 

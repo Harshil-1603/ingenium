@@ -20,8 +20,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const dayStart = new Date(startStr);
-    const dayEnd = new Date(endStr);
+    // Parse as local date (no timezone conversion) to keep the correct calendar day
+    const parseLocal = (s: string) => {
+      const [datePart, timePart] = s.split("T");
+      const [y, mo, d] = datePart.split("-").map(Number);
+      if (!timePart) return new Date(y, mo - 1, d, 0, 0, 0);
+      const [h, mi, sec] = timePart.replace(/\..*/, "").split(":").map(Number);
+      return new Date(y, mo - 1, d, h, mi, sec ?? 0);
+    };
+
+    const dayStart = parseLocal(startStr);
+    const dayEnd = parseLocal(endStr);
 
     if (isNaN(dayStart.getTime()) || isNaN(dayEnd.getTime())) {
       return NextResponse.json(
