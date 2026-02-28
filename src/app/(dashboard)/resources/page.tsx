@@ -50,6 +50,8 @@ export default function ResourcesPage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+  const [clubs, setClubs] = useState<{ id: string; name: string }[]>([]);
   const [createModal, setCreateModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [bookingModal, setBookingModal] = useState(false);
@@ -61,6 +63,7 @@ export default function ResourcesPage() {
   const [form, setForm] = useState({
     name: "", type: "EQUIPMENT" as string, description: "", location: "",
     requiresApproval: true, maxBookingHours: "24", availableFrom: "08:00", availableTo: "22:00", maxCount: "1",
+    assignTo: "", // "dept-{id}" | "club-{id}" | "" (unassigned)
   });
   const [editModal, setEditModal] = useState(false);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
@@ -73,6 +76,18 @@ export default function ResourcesPage() {
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   useEffect(() => { fetchResources(); }, [search, typeFilter]);
+
+  useEffect(() => {
+    if (!createModal) return;
+    Promise.all([fetch("/api/departments"), fetch("/api/clubs")])
+      .then(async ([dr, cr]) => {
+        const dd = await dr.json();
+        const cd = await cr.json();
+        if (dd.success) setDepartments(dd.data);
+        if (cd.success) setClubs(cd.data);
+      })
+      .catch(() => {});
+  }, [createModal]);
 
   async function fetchResources() {
     setLoading(true);
@@ -144,6 +159,8 @@ export default function ResourcesPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
+      const departmentId = form.assignTo.startsWith("dept-") ? form.assignTo.slice(5) : undefined;
+      const clubId       = form.assignTo.startsWith("club-") ? form.assignTo.slice(5) : undefined;
       const res = await fetch("/api/resources", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -153,13 +170,15 @@ export default function ResourcesPage() {
           requiresApproval: form.requiresApproval, maxBookingHours: Number(form.maxBookingHours),
           availableFrom: form.availableFrom, availableTo: form.availableTo,
           maxCount: Number(form.maxCount),
+          departmentId,
+          clubId,
         }),
       });
       const data = await res.json();
       if (data.success) {
         toast("success", "Resource added!");
         setCreateModal(false);
-        setForm({ name: "", type: "EQUIPMENT", description: "", location: "", requiresApproval: true, maxBookingHours: "24", availableFrom: "08:00", availableTo: "22:00", maxCount: "1" });
+        setForm({ name: "", type: "EQUIPMENT", description: "", location: "", requiresApproval: true, maxBookingHours: "24", availableFrom: "08:00", availableTo: "22:00", maxCount: "1", assignTo: "" });
         fetchResources();
       } else {
         toast("error", data.error);
@@ -478,6 +497,42 @@ export default function ResourcesPage() {
                     <option value="ASSET">Asset</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Assign To — locked for lab tech / club head, full picker for admin */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Assign To</label>
+                {["LAB_TECH", "DEPARTMENT_OFFICER"].includes(currentUser.role) ? (
+                  <div className="input-field bg-gray-50 text-gray-500 cursor-not-allowed select-none">
+                    {departments.find(d => d.id === (currentUser as { departmentId?: string | null }).departmentId)?.name ?? "Your Department"} (auto-assigned)
+                  </div>
+                ) : ["CLUB_ADMIN", "CLUB_MANAGER"].includes(currentUser.role) ? (
+                  <div className="input-field bg-gray-50 text-gray-500 cursor-not-allowed select-none">
+                    {clubs.find(c => c.id === (currentUser as { clubId?: string | null }).clubId)?.name ?? "Your Club"} (auto-assigned)
+                  </div>
+                ) : (
+                  <select
+                    value={form.assignTo}
+                    onChange={(e) => setForm({ ...form, assignTo: e.target.value })}
+                    className="input-field"
+                  >
+                    <option value="">— General (no assignment) —</option>
+                    {departments.length > 0 && (
+                      <optgroup label="Departments">
+                        {departments.map(d => (
+                          <option key={d.id} value={`dept-${d.id}`}>{d.name}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {clubs.length > 0 && (
+                      <optgroup label="Clubs">
+                        {clubs.map(c => (
+                          <option key={c.id} value={`club-${c.id}`}>{c.name}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
