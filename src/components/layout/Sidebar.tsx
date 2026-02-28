@@ -28,7 +28,8 @@ interface NavSection {
   items: { name: string; href: string; icon: React.ElementType; roles: string[] }[];
 }
 
-const CAN_BOOK_ROOMS = ["PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "SUPER_ADMIN", "ADMIN"];
+const CAN_VIEW_ROOMS = ["STUDENT", "PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "DEPARTMENT_OFFICER", "LAB_TECH", "LHC", "SUPER_ADMIN", "ADMIN"];
+const CAN_BOOK_ROOMS = ["PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "DEPARTMENT_OFFICER", "LAB_TECH", "SUPER_ADMIN", "ADMIN"];
 const CAN_USE_RESOURCES = ["STUDENT", "PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "SUPER_ADMIN", "ADMIN"];
 const DEPT_ROLES = ["DEPARTMENT_OFFICER", "LAB_TECH"];
 const ALL_ROLES = ["STUDENT", "PROFESSOR", "CLUB_ADMIN", "CLUB_MANAGER", "DEPARTMENT_OFFICER", "LAB_TECH", "LHC", "SUPER_ADMIN", "ADMIN"];
@@ -43,7 +44,7 @@ const sections: NavSection[] = [
   {
     label: "Rooms",
     items: [
-      { name: "Room Directory", href: "/rooms", icon: DoorOpen, roles: CAN_BOOK_ROOMS },
+      { name: "Room Directory", href: "/rooms", icon: DoorOpen, roles: CAN_VIEW_ROOMS },
       { name: "Room Bookings", href: "/room-bookings", icon: BookOpen, roles: CAN_BOOK_ROOMS },
     ],
   },

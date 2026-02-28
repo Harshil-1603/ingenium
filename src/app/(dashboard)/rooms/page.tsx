@@ -139,11 +139,21 @@ export default function RoomsPage() {
   if (!user) return null;
   const canCreate = ["DEPARTMENT_OFFICER", "LAB_TECH", "SUPER_ADMIN", "ADMIN"].includes(user.role);
   const canBook = canBookRoom({ role: user.role });
+  const isViewOnly = user.role === "STUDENT";
 
   return (
     <div>
       <Header user={user} title="Room Directory" />
       <div className="p-6">
+        {isViewOnly && (
+          <div className="mb-5 flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            <span className="mt-0.5 text-base">ℹ️</span>
+            <div>
+              <strong>View-only mode.</strong> Students can see room availability and live schedules but cannot book rooms.
+              To reserve equipment or assets, visit <a href="/resource-bookings" className="underline font-medium">Resource Bookings</a>.
+            </div>
+          </div>
+        )}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />

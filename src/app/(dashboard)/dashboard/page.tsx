@@ -114,17 +114,31 @@ export default function DashboardPage() {
             </div>
 
             <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Link href="/room-bookings" className="card hover:shadow-md transition-shadow group">
-                <div className="flex items-center gap-4">
-                  <div className="rounded-xl bg-brand-50 p-3 group-hover:bg-brand-100 transition-colors">
-                    <BookOpen className="h-6 w-6 text-brand-600" />
+              {user.role !== "STUDENT" ? (
+                <Link href="/room-bookings" className="card hover:shadow-md transition-shadow group">
+                  <div className="flex items-center gap-4">
+                    <div className="rounded-xl bg-brand-50 p-3 group-hover:bg-brand-100 transition-colors">
+                      <BookOpen className="h-6 w-6 text-brand-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">Book a Room</h3>
+                      <p className="text-sm text-gray-500">Reserve a lecture hall or lab</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Book a Room</h3>
-                    <p className="text-sm text-gray-500">Reserve a lecture hall or lab</p>
+                </Link>
+              ) : (
+                <Link href="/rooms" className="card hover:shadow-md transition-shadow group">
+                  <div className="flex items-center gap-4">
+                    <div className="rounded-xl bg-brand-50 p-3 group-hover:bg-brand-100 transition-colors">
+                      <BookOpen className="h-6 w-6 text-brand-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">Room Availability</h3>
+                      <p className="text-sm text-gray-500">View live room schedules</p>
+                    </div>
                   </div>
-                </div>
-              </Link>
+                </Link>
+              )}
               <Link href="/resource-bookings" className="card hover:shadow-md transition-shadow group">
                 <div className="flex items-center gap-4">
                   <div className="rounded-xl bg-purple-50 p-3 group-hover:bg-purple-100 transition-colors">

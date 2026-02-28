@@ -103,6 +103,26 @@ export default function RoomBookingsPage() {
   }
 
   if (!user) return null;
+  if (user.role === "STUDENT") {
+    return (
+      <div>
+        <Header user={user} title="Room Bookings" />
+        <div className="p-6">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-6 py-8 text-center max-w-lg mx-auto mt-12">
+            <div className="text-4xl mb-3">🚫</div>
+            <h2 className="text-lg font-semibold text-amber-900 mb-2">Room booking is not available for students</h2>
+            <p className="text-sm text-amber-700 mb-4">
+              Students can view live room availability and schedules, but room reservations are handled by professors, club admins, and department officers.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2 justify-center">
+              <a href="/rooms" className="btn-secondary text-sm">View Room Directory</a>
+              <a href="/resource-bookings" className="btn-primary text-sm">Book Equipment / Assets</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   const canBook = canBookRoom({ role: user.role });
 
   return (
