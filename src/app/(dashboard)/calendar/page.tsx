@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
@@ -10,6 +11,8 @@ import { toast } from "@/components/ui/Toaster";
 
 export default function CalendarPage() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const resourceIdFromUrl = searchParams.get("resource") || undefined;
   const [selectedDate, setSelectedDate] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")}`;
@@ -154,6 +157,7 @@ export default function CalendarPage() {
           date={selectedDate}
           onEmptySlotClick={handleEmptySlotClick}
           refreshKey={refreshKey}
+          preselectedResourceId={resourceIdFromUrl}
         />
 
         {/* Booking modal */}

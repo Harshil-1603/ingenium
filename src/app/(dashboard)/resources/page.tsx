@@ -8,7 +8,8 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { toast } from "@/components/ui/Toaster";
 import { getResourceTypeLabel } from "@/lib/utils";
-import { Plus, Box, MapPin, Clock, Search, Tag } from "lucide-react";
+import { Plus, Box, MapPin, Clock, Search, Tag, CalendarPlus } from "lucide-react";
+import Link from "next/link";
 
 interface Resource {
   id: string;
@@ -33,6 +34,17 @@ export default function ResourcesPage() {
   const [typeFilter, setTypeFilter] = useState("");
   const [createModal, setCreateModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [bookingModal, setBookingModal] = useState(false);
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [bookingForm, setBookingForm] = useState({
+    title: "",
+    description: "",
+    resourceId: "",
+    resourceName: "",
+    date: "",
+    startHour: "09",
+    endHour: "10",
+  });
   const [form, setForm] = useState({
     name: "", type: "EQUIPMENT" as string, description: "", location: "",
     requiresApproval: true, maxBookingHours: "24", availableFrom: "08:00", availableTo: "22:00",
@@ -80,6 +92,53 @@ export default function ResourcesPage() {
         toast("error", data.error);
       }
     } catch { toast("error", "Failed to add resource"); } finally { setSubmitting(false); }
+  }
+
+  function openBookModal(resource: Resource) {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")}`;
+    setBookingForm({
+      title: "",
+      description: "",
+      resourceId: resource.id,
+      resourceName: resource.name,
+      date: today,
+      startHour: "09",
+      endHour: "10",
+    });
+    setBookingModal(true);
+  }
+
+  async function handleBookingSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setBookingSubmitting(true);
+    try {
+      const startTime = new Date(`${bookingForm.date}T${bookingForm.startHour}:00:00`);
+      const endTime = new Date(`${bookingForm.date}T${bookingForm.endHour}:00:00`);
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: bookingForm.title,
+          description: bookingForm.description || undefined,
+          resourceId: bookingForm.resourceId,
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast("success", data.data.status === "WAITLISTED" ? "Added to waitlist" : "Booking submitted!");
+        setBookingModal(false);
+        fetchResources();
+      } else {
+        toast("error", data.error);
+      }
+    } catch {
+      toast("error", "Failed to create booking");
+    } finally {
+      setBookingSubmitting(false);
+    }
   }
 
   if (!user) return null;
@@ -144,11 +203,95 @@ export default function ResourcesPage() {
                   <div className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 text-gray-400" />{r.availableFrom} — {r.availableTo} · Max {r.maxBookingHours}h</div>
                 </div>
                 {r.owner && <p className="mt-3 text-xs text-gray-400">Managed by {r.owner.name}</p>}
-                <div className="mt-4 text-xs text-gray-400">{r._count.bookings} bookings</div>
+                <div className="mt-4 flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">{r._count.bookings} bookings</span>
+                    <Link href={`/calendar?resource=${r.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-700">
+                      View Calendar
+                    </Link>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openBookModal(r)}
+                    className="btn-primary w-full flex items-center justify-center gap-2 py-2 text-sm"
+                  >
+                    <CalendarPlus className="h-4 w-4" />
+                    Book Now
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
+
+        {/* Book Now modal */}
+        <Modal open={bookingModal} onClose={() => setBookingModal(false)} title={`Book: ${bookingForm.resourceName || "Resource"}`} maxWidth="max-w-xl">
+          <form onSubmit={handleBookingSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+              <input
+                type="text"
+                required
+                value={bookingForm.title}
+                onChange={(e) => setBookingForm({ ...bookingForm, title: e.target.value })}
+                className="input-field"
+                placeholder="Meeting, Event..."
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <textarea
+                value={bookingForm.description}
+                onChange={(e) => setBookingForm({ ...bookingForm, description: e.target.value })}
+                className="input-field"
+                rows={2}
+                placeholder="Optional"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <input
+                  type="date"
+                  required
+                  value={bookingForm.date}
+                  onChange={(e) => setBookingForm({ ...bookingForm, date: e.target.value })}
+                  className="input-field"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Start</label>
+                <select
+                  value={bookingForm.startHour}
+                  onChange={(e) => setBookingForm({ ...bookingForm, startHour: e.target.value })}
+                  className="input-field"
+                >
+                  {Array.from({ length: 15 }, (_, i) => i + 8).map((h) => (
+                    <option key={h} value={h.toString().padStart(2, "0")}>{h.toString().padStart(2, "0")}:00</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">End</label>
+                <select
+                  value={bookingForm.endHour}
+                  onChange={(e) => setBookingForm({ ...bookingForm, endHour: e.target.value })}
+                  className="input-field"
+                >
+                  {Array.from({ length: 15 }, (_, i) => i + 8).map((h) => (
+                    <option key={h} value={h.toString().padStart(2, "0")}>{h.toString().padStart(2, "0")}:00</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={() => setBookingModal(false)} className="btn-secondary">Cancel</button>
+              <button type="submit" disabled={bookingSubmitting} className="btn-primary">
+                {bookingSubmitting ? "Submitting..." : "Book Now"}
+              </button>
+            </div>
+          </form>
+        </Modal>
 
         {canCreate && (
           <Modal open={createModal} onClose={() => setCreateModal(false)} title="Add New Resource" maxWidth="max-w-xl">

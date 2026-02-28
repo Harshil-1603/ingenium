@@ -40,13 +40,14 @@ interface DailyCalendarProps {
   onEmptySlotClick?: (resourceId: string, date: string, hour: number) => void;
   onSlotClick?: (slot: BookingSlot) => void;
   refreshKey?: number;
+  preselectedResourceId?: string;
 }
 
 const HOURS = Array.from({ length: 15 }, (_, i) => i + 8);
 const FIRST_HOUR = 8;
 const CELL_HEIGHT = 48;
 
-export function DailyCalendar({ date, onEmptySlotClick, onSlotClick, refreshKey }: DailyCalendarProps) {
+export function DailyCalendar({ date, onEmptySlotClick, onSlotClick, refreshKey, preselectedResourceId }: DailyCalendarProps) {
   const [resources, setResources] = useState<Resource[]>([]);
   const [bookings, setBookings] = useState<BookingSlot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,8 +76,11 @@ export function DailyCalendar({ date, onEmptySlotClick, onSlotClick, refreshKey 
     }
   }
 
-  const filteredResources =
-    typeFilter === "ALL" ? resources : resources.filter((r) => r.type === typeFilter);
+  const filteredResources = preselectedResourceId
+    ? resources.filter((r) => r.id === preselectedResourceId)
+    : typeFilter === "ALL"
+      ? resources
+      : resources.filter((r) => r.type === typeFilter);
 
   const resourceTypes = [...new Set(resources.map((r) => r.type))];
 
@@ -147,7 +151,7 @@ export function DailyCalendar({ date, onEmptySlotClick, onSlotClick, refreshKey 
 
   return (
     <div className="card overflow-hidden">
-      {resourceTypes.length > 1 && (
+      {resourceTypes.length > 1 && !preselectedResourceId && (
         <div className="flex flex-wrap gap-2 mb-4">
           <button
             onClick={() => setTypeFilter("ALL")}

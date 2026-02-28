@@ -43,13 +43,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await createAuditLog({
-      action: "USER_LOGIN",
-      entityType: "User",
-      entityId: user.id,
-      userId: user.id,
-      metadata: { email },
-    });
+    try {
+      await createAuditLog({
+        action: "USER_LOGIN",
+        entityType: "User",
+        entityId: user.id,
+        userId: user.id,
+        metadata: { email },
+      });
+    } catch (auditError) {
+      console.warn("[Login] Audit log failed:", auditError);
+    }
 
     const token = await signToken({ userId: user.id, email: user.email, role: user.role });
 
